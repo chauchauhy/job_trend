@@ -1,11 +1,18 @@
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import time
 
 import pandas as pd
 import streamlit as st
 
+from config import REGIONS, settings
 from src.analysis.skills import compute_stats, top_skills
 from src.chat.handler import respond
-from config import REGIONS, settings
 from src.fetch import cache_is_fresh, load_cached, refresh_region, source_counts
 
 MAX_HISTORY = 50
@@ -31,6 +38,21 @@ def run() -> None:
     _render_chat()
 
 
+def _config_changed_since(fetched_at: float | None) -> bool:
+    if fetched_at is None:
+        return False
+    candidates = (
+        settings.paths.root / ".env",
+        settings.paths.config / "skills.json",
+        settings.paths.config / "keywords.json",
+    )
+    return any(path.exists() and path.stat().st_mtime > fetched_at for path in candidates)
+
+
+def _is_fresh(fetched_at: float | None) -> bool:
+    return cache_is_fresh(fetched_at) and not _config_changed_since(fetched_at)
+
+
 def _init_state() -> None:
     if "region" not in st.session_state:
         st.session_state.region = next(iter(REGIONS))
@@ -47,11 +69,7 @@ def _init_state() -> None:
         st.session_state._hydrated = True
 
 
-def _refresh(region: str, force: bool) -> None:
-    fetched_at = st.session_state.get(f"_fetched_{region}")
-    if not force and cache_is_fresh(fetched_at):
-        st.toast("Cache is still fresh — nothing fetched.", icon="⏭️")
-        return
+def _refresh(region: str) -> None:
     with st.spinner(f"Fetching {region} jobs from APIs..."):
         jobs, warnings = refresh_region(region)
     st.session_state[region] = jobs
@@ -66,9 +84,7 @@ def _render_sidebar() -> None:
         region = st.radio("Region", list(REGIONS), key="region")
 
         if st.button("Refresh jobs", type="primary", use_container_width=True):
-            _refresh(region, force=False)
-        if st.button("Force refresh (bypass TTL)", use_container_width=True):
-            _refresh(region, force=True)
+            _refresh(region)
 
         if not settings.api.jooble_api_key and not settings.api.jsearch_api_key:
             st.warning("No Jooble/JSearch key in `.env` — Hong Kong will stay empty.")
@@ -81,14 +97,14 @@ def _render_sidebar() -> None:
         else:
             fetched_at = st.session_state.get(f"_fetched_{region}")
             age_min = int((time.time() - fetched_at) / 60) if fetched_at else 0
-            fresh = cache_is_fresh(fetched_at)
-            badge = "🟢 fresh" if fresh else "🟠 stale"
+            badge = "🟢 fresh" if _is_fresh(fetched_at) else "🟠 stale"
+            note = " · config changed — refresh" if _config_changed_since(fetched_at) else ""
             st.metric(
                 "Jobs cached",
                 len(jobs),
                 help=f"fetched {age_min} min ago · TTL {settings.fetch.cache_ttl_hours}h",
             )
-            st.caption(f"{badge} · fetched {age_min} min ago")
+            st.caption(f"{badge} · fetched {age_min} min ago{note}")
             counts = source_counts(jobs)
             st.write({source: int(n) for source, n in counts.items()})
             stats = st.session_state.get(f"_stats_{region}") or []

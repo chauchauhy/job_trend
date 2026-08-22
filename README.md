@@ -20,7 +20,7 @@ USA/Global work keyless via Jobicy + Remotive + RemoteOK.
 
 1. Pick region (Hong Kong / USA / Global) → **Refresh jobs**.
 2. Ask the chat: `top skills`, `python`, `how many jobs`, `compare hk vs usa`, `help`.
-3. Results cached 6h in memory + `res/data/*.json`; **Force refresh** bypasses TTL.
+3. **Refresh jobs** always hits the APIs; badge shows 🟢 fresh / 🟠 stale. Editing `.env` or `res/config/*.json` marks caches stale automatically.
 
 ## Layout
 
@@ -38,3 +38,5 @@ tests/               pytest, no live APIs
 ```
 
 Tuning: edit `res/config/skills.json` (skills/aliases) or `res/config/keywords.json` (search queries, relevance terms) and hit Force refresh.
+
+streamlit run app.py
