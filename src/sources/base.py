@@ -29,12 +29,12 @@ def http_headers() -> dict[str, str]:
     return {"User-Agent": settings.api.user_agent, "Accept": "application/json"}
 
 
-def get_json(url: str, params: dict | None = None) -> tuple[Any, str | None]:
-    return _request("GET", url, params=params)
+def get_json(url: str, params: dict | None = None, headers: dict | None = None) -> tuple[Any, str | None]:
+    return _request("GET", url, params=params, extra_headers=headers)
 
 
-def post_json(url: str, payload: dict) -> tuple[Any, str | None]:
-    return _request("POST", url, json_payload=payload)
+def post_json(url: str, payload: dict, headers: dict | None = None) -> tuple[Any, str | None]:
+    return _request("POST", url, json_payload=payload, extra_headers=headers)
 
 
 def _request(
@@ -42,14 +42,16 @@ def _request(
     url: str,
     params: dict | None = None,
     json_payload: dict | None = None,
+    extra_headers: dict | None = None,
 ) -> tuple[Any, str | None]:
+    request_headers = {**http_headers(), **(extra_headers or {})}
     try:
         resp = requests.request(
             method,
             url,
             params=params,
             json=json_payload,
-            headers=http_headers(),
+            headers=request_headers,
             timeout=settings.api.timeout_s,
         )
         resp.raise_for_status()

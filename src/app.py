@@ -23,7 +23,8 @@ def run() -> None:
     _render_sidebar()
     st.title(settings.app.title)
     st.caption(
-        "Rule-based skill-trend explorer over free job APIs (Jooble / Jobicy / Remotive). "
+        "Rule-based skill-trend explorer over free job APIs "
+        "(Jooble / JSearch / Jobicy / Remotive / RemoteOK). "
         "Ask things like **top skills**, **python**, or **compare hk vs usa**."
     )
     _render_dashboard()
@@ -69,8 +70,8 @@ def _render_sidebar() -> None:
         if st.button("Force refresh (bypass TTL)", use_container_width=True):
             _refresh(region, force=True)
 
-        if not settings.api.jooble_api_key:
-            st.warning("`JOOBLE_API_KEY` missing in `.env` — HK needs Jooble.")
+        if not settings.api.jooble_api_key and not settings.api.jsearch_api_key:
+            st.warning("No Jooble/JSearch key in `.env` — Hong Kong will stay empty.")
 
         jobs = st.session_state.get(region)
         if jobs is None:
@@ -82,7 +83,11 @@ def _render_sidebar() -> None:
             age_min = int((time.time() - fetched_at) / 60) if fetched_at else 0
             fresh = cache_is_fresh(fetched_at)
             badge = "🟢 fresh" if fresh else "🟠 stale"
-            st.metric("Jobs cached", len(jobs), help=f"fetched {age_min} min ago · TTL {settings.fetch.cache_ttl_hours}h")
+            st.metric(
+                "Jobs cached",
+                len(jobs),
+                help=f"fetched {age_min} min ago · TTL {settings.fetch.cache_ttl_hours}h",
+            )
             st.caption(f"{badge} · fetched {age_min} min ago")
             counts = source_counts(jobs)
             st.write({source: int(n) for source, n in counts.items()})
@@ -98,9 +103,11 @@ def _render_sidebar() -> None:
         st.divider()
         st.caption(
             "Sources: [Jooble](https://jooble.org) · "
+            "[JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) · "
             "[Jobicy](https://jobicy.com) · "
-            "[Remotive](https://remotive.com). "
-            "Remote boards enrich USA/Global; HK relies mainly on Jooble."
+            "[Remotive](https://remotive.com) · "
+            "[RemoteOK](https://remoteok.com). "
+            "Remote boards enrich USA/Global; HK uses Jooble/JSearch."
         )
 
 
@@ -118,8 +125,9 @@ def _render_dashboard() -> None:
             "jobs": [s.count for s in stats],
         }
     )
+    top_stats = top_skills(stats)
     top_frame = pd.DataFrame(
-        {"skill": [s.name for s in top_skills(stats)], "jobs": [s.count for s in top_skills(stats)]}
+        {"skill": [s.name for s in top_stats], "jobs": [s.count for s in top_stats]}
     ).set_index("skill")
     col_chart, col_cat = st.columns([3, 2])
     with col_chart:

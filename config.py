@@ -40,9 +40,12 @@ class DisplayConfig:
 @dataclass(frozen=True, slots=True)
 class ApiConfig:
     jooble_api_key: str = field(default_factory=lambda: os.getenv("JOOBLE_API_KEY", ""))
+    jsearch_api_key: str = field(default_factory=lambda: os.getenv("JSEARCH_API_KEY", ""))
     jooble_base_url: str = "https://jooble.org/api"
     jobicy_url: str = "https://jobicy.com/api/v2/remote-jobs"
     remotive_url: str = "https://remotive.com/api/remote-jobs"
+    remoteok_url: str = "https://remoteok.com/api"
+    jsearch_base_url: str = "https://jsearch.p.rapidapi.com"
     user_agent: str = "job-trend-demo/1.0 (streamlit; contact: local)"
     timeout_s: float = 20.0
 
@@ -51,6 +54,7 @@ class ApiConfig:
 class FetchConfig:
     max_jobs_per_region: int = 150
     jooble_max_pages_per_keyword: int = 3
+    jsearch_max_pages_per_keyword: int = 2
     jobicy_count: int = 50
     request_delay_s: float = 0.4
     cache_ttl_hours: int = 6
@@ -63,6 +67,11 @@ REGIONS: dict[str, str] = {
 }
 
 REMOTE_SOURCES_REGIONS: tuple[str, ...] = ("USA", "Global")
+
+JSEARCH_COUNTRY: dict[str, str] = {
+    "Hong Kong": "hk",
+    "USA": "us",
+}
 
 REGION_ALIASES: dict[str, str] = {
     "hk": "Hong Kong",

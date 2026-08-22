@@ -3,9 +3,9 @@ import re
 import time
 from collections import Counter
 
-from config import REMOTE_SOURCES_REGIONS, settings
+from config import JSEARCH_COUNTRY, REMOTE_SOURCES_REGIONS, settings
 from src.models import Job, job_from_dict, job_to_dict
-from src.sources import jobicy, jooble, remotive
+from src.sources import jobicy, jooble, jsearch, remoteok, remotive
 
 _DESC_PREVIEW_CHARS = 600
 _KEYWORDS_MTIME: float | None = None
@@ -17,18 +17,34 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
     keywords = _load_keywords()
     merged: dict[str, Job] = {}
 
-    if region == "Hong Kong" and not settings.api.jooble_api_key:
-        warnings.append("JOOBLE_API_KEY missing in .env — Hong Kong needs Jooble.")
+    has_jooble = bool(settings.api.jooble_api_key)
+    has_jsearch = bool(settings.api.jsearch_api_key)
 
-    jooble_jobs, jooble_error = jooble.fetch(keywords["search_queries"], region)
-    if settings.api.jooble_api_key and jooble_error:
-        warnings.append(f"Jooble failed ({jooble_error}) — check your key at jooble.org/api.")
-    elif settings.api.jooble_api_key and not jooble_jobs:
-        warnings.append("Jooble returned no matches for the configured keywords.")
-    _merge(merged, jooble_jobs)
+    if region == "Hong Kong" and not (has_jooble or has_jsearch):
+        warnings.append("Hong Kong needs JOOBLE_API_KEY or JSEARCH_API_KEY in .env.")
+
+    if has_jooble:
+        jooble_jobs, jooble_error = jooble.fetch(keywords["search_queries"], region)
+        if jooble_error:
+            warnings.append(f"Jooble failed ({jooble_error}) — check your key at jooble.org/api.")
+        elif not jooble_jobs:
+            warnings.append("Jooble returned no matches for the configured keywords.")
+        _merge(merged, jooble_jobs)
+
+    if region in JSEARCH_COUNTRY and has_jsearch:
+        js_jobs, js_error = jsearch.fetch(keywords["search_queries"], region)
+        if js_error:
+            warnings.append(f"JSearch failed ({js_error}).")
+        elif not js_jobs:
+            warnings.append("JSearch returned no matches for the configured keywords.")
+        _merge(merged, js_jobs)
 
     if region in REMOTE_SOURCES_REGIONS:
-        for label, fetch_remote in (("Jobicy", jobicy.fetch), ("Remotive", remotive.fetch)):
+        for label, fetch_remote in (
+            ("Jobicy", jobicy.fetch),
+            ("Remotive", remotive.fetch),
+            ("RemoteOK", remoteok.fetch),
+        ):
             jobs, error = fetch_remote()
             if error:
                 warnings.append(f"{label} failed ({error}).")
