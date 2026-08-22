@@ -1,0 +1,64 @@
+{
+  "categories": {
+    "languages": [
+      "Python", "Java", "JavaScript", "TypeScript", "Golang", "C#", "C++",
+      "Ruby", "PHP", "Swift", "Kotlin", "Rust", "Scala", "SQL", "MATLAB",
+      "Bash", "Perl", "VBA"
+    ],
+    "frameworks_web": [
+      "React", "Vue.js", "Angular", "Next.js", "Nuxt", "Svelte",
+      "Django", "Flask", "FastAPI", "Spring Boot", ".NET", "Node.js",
+      "Express.js", "Laravel", "Ruby on Rails", "GraphQL", "REST API", "gRPC"
+    ],
+    "cloud_devops": [
+      "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes", "Terraform",
+      "Ansible", "CI/CD", "Jenkins", "GitHub Actions", "GitLab CI",
+      "Linux", "Git", "Prometheus", "Grafana", "Serverless"
+    ],
+    "data_ai": [
+      "Machine Learning", "Deep Learning", "LLM", "Generative AI",
+      "Natural Language Processing", "Computer Vision", "PyTorch",
+      "TensorFlow", "scikit-learn", "Hugging Face", "LangChain",
+      "OpenCV", "Pandas", "NumPy", "Apache Spark", "Kafka", "Airflow",
+      "Snowflake", "Tableau", "Power BI", "ETL", "Data Modeling",
+      "Prompt Engineering"
+    ],
+    "databases": [
+      "MySQL", "PostgreSQL", "MongoDB", "Redis", "Elasticsearch",
+      "SQLite", "Oracle Database", "Microsoft SQL Server", "DynamoDB",
+      "Firebase", "Supabase"
+    ],
+    "mobile": [
+      "iOS Development", "Android Development", "React Native", "Flutter"
+    ],
+    "practices": [
+      "Agile", "Scrum", "Kanban", "TDD", "Microservices", "System Design",
+      "Unit Testing", "Code Review", "Design Patterns"
+    ]
+  },
+  "aliases": {
+    "Vue.js": ["vue"],
+    "Node.js": ["nodejs", "node js", "node"],
+    "Express.js": ["expressjs"],
+    "Next.js": ["nextjs", "next js"],
+    "Nuxt": ["nuxtjs"],
+    ".NET": ["dotnet", "asp.net", "net core"],
+    "Google Cloud": ["gcp"],
+    "CI/CD": ["ci cd", "cicd", "continuous integration"],
+    "GitLab CI": ["gitlab ci/cd"],
+    "GitHub Actions": ["github action"],
+    "LLM": ["llms", "large language model", "large language models"],
+    "Generative AI": ["genai", "gen ai"],
+    "Natural Language Processing": ["nlp"],
+    "scikit-learn": ["sklearn", "scikit learn"],
+    "Hugging Face": ["huggingface"],
+    "Pandas": ["python pandas"],
+    "NumPy": ["numpy"],
+    "Apache Spark": ["apache spark sql"],
+    "Microsoft SQL Server": ["mssql", "ms sql"],
+    "Oracle Database": ["oracle db", "oracle database"],
+    "iOS Development": ["ios"],
+    "REST API": ["restful", "rest api's", "rest apis"],
+    "Prompt Engineering": ["prompting"]
+  }
+}

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Secrets
+.env
+
+# App cache
+res/data/*.json
+
+# Tooling
+.pytest_cache/
+.streamlit/secrets.toml

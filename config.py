@@ -1,0 +1,90 @@
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT_DIR = Path(__file__).resolve().parent
+load_dotenv(ROOT_DIR / ".env")
+
+
+@dataclass(frozen=True, slots=True)
+class Paths:
+    root: Path = ROOT_DIR
+    src: Path = field(default_factory=lambda: ROOT_DIR / "src")
+    res: Path = field(default_factory=lambda: ROOT_DIR / "res")
+    data: Path = field(default_factory=lambda: ROOT_DIR / "res" / "data")
+    images: Path = field(default_factory=lambda: ROOT_DIR / "res" / "images")
+    config: Path = field(default_factory=lambda: ROOT_DIR / "res" / "config")
+
+
+@dataclass(frozen=True, slots=True)
+class AppConfig:
+    title: str = "Job Trend"
+    layout: str = "wide"
+    page_icon: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DataConfig:
+    encoding: str = "utf-8"
+    csv_separator: str = ","
+
+
+@dataclass(frozen=True, slots=True)
+class DisplayConfig:
+    date_format: str = "%Y-%m-%d"
+    top_n: int = 10
+
+
+@dataclass(frozen=True, slots=True)
+class ApiConfig:
+    jooble_api_key: str = field(default_factory=lambda: os.getenv("JOOBLE_API_KEY", ""))
+    jooble_base_url: str = "https://jooble.org/api"
+    jobicy_url: str = "https://jobicy.com/api/v2/remote-jobs"
+    remotive_url: str = "https://remotive.com/api/remote-jobs"
+    user_agent: str = "job-trend-demo/1.0 (streamlit; contact: local)"
+    timeout_s: float = 20.0
+
+
+@dataclass(frozen=True, slots=True)
+class FetchConfig:
+    max_jobs_per_region: int = 150
+    jooble_max_pages_per_keyword: int = 3
+    jobicy_count: int = 50
+    request_delay_s: float = 0.4
+    cache_ttl_hours: int = 6
+
+
+REGIONS: dict[str, str] = {
+    "Hong Kong": "Hong Kong",
+    "USA": "United States",
+    "Global": "",
+}
+
+REMOTE_SOURCES_REGIONS: tuple[str, ...] = ("USA", "Global")
+
+REGION_ALIASES: dict[str, str] = {
+    "hk": "Hong Kong",
+    "hong kong": "Hong Kong",
+    "usa": "USA",
+    "us": "USA",
+    "united states": "USA",
+    "america": "USA",
+    "global": "Global",
+    "worldwide": "Global",
+    "world": "Global",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Settings:
+    paths: Paths = field(default_factory=Paths)
+    app: AppConfig = field(default_factory=AppConfig)
+    data: DataConfig = field(default_factory=DataConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
+    api: ApiConfig = field(default_factory=ApiConfig)
+    fetch: FetchConfig = field(default_factory=FetchConfig)
+
+
+settings = Settings()
