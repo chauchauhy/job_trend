@@ -19,6 +19,7 @@ from src.ui.theme import (
     brand,
     category_donut,
     demand_chart,
+    feed_row,
     inject_theme,
     kpi_tiles,
     section_title,
@@ -207,7 +208,7 @@ def _chart_grid(jobs: list | None, stats: list) -> None:
                     "%": [s.pct for s in stats],
                 }
             )
-            st.dataframe(frame, use_container_width=True, hide_index=True)
+            st.dataframe(frame, width="stretch", hide_index=True)
 
 
 def _assistant(region: str) -> None:
@@ -220,7 +221,7 @@ def _assistant(region: str) -> None:
                 assistant_rule()
                 st.markdown(text)
                 if df is not None and not df.empty:
-                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.dataframe(df, width="stretch", hide_index=True)
 
         if not st.session_state.messages and not st.session_state.get(region):
             st.caption("Pull a market first, then ask about any skill on the tape.")
@@ -228,7 +229,7 @@ def _assistant(region: str) -> None:
         chip_cols = st.columns(len(_CHIPS))
         clicked_chip: str | None = None
         for col, chip in zip(chip_cols, _CHIPS):
-            if col.button(chip, key=f"chip-{chip}-{len(st.session_state.messages)}", use_container_width=True):
+            if col.button(chip, key=f"chip-{chip}", width="stretch"):
                 clicked_chip = chip
 
         prompt = clicked_chip or st.chat_input("Ask about a skill…")
