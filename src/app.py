@@ -181,22 +181,25 @@ def _kpis(region: str, jobs: list | None, stats: list) -> None:
 
 
 def _chart_grid(jobs: list | None, stats: list) -> None:
+    shared_height = 27 * min(len(stats), 12) + 18 if stats else 260
     left, right = st.columns([1.55, 1.0], gap="medium")
     with left:
         section_title("Skill demand", "TOP 12 BY MENTIONS")
         if stats:
-            demand_chart(stats)
+            with st.container(border=True):
+                demand_chart(stats, height=shared_height)
         else:
             st.markdown(
-                "<div class='card' style='color:#93A4BD'>No tape yet — hit <b>⟳ Refresh</b> to pull the first batch.</div>",
+                "<div class='card' style='color:#666666'>No tape yet — hit <b>⟳ Refresh</b> to pull the first batch.</div>",
                 unsafe_allow_html=True,
             )
     with right:
         section_title("Category mix")
         if stats:
-            category_donut(stats)
+            with st.container(border=True):
+                category_donut(stats, height=shared_height)
         else:
-            st.markdown("<div class='card' style='color:#93A4BD'>Waiting on data.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='card' style='color:#666666'>Waiting on data.</div>", unsafe_allow_html=True)
 
     if stats:
         with st.expander("Full skill table"):
