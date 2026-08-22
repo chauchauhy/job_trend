@@ -1,3 +1,5 @@
+import time
+
 from config import JSEARCH_COUNTRY, settings
 from src.models import Job
 from src.sources.base import get_json, strip_html
@@ -14,7 +16,7 @@ def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
     errors: dict[str, int] = {}
     for keyword in keywords:
         for page in range(1, settings.fetch.jsearch_max_pages_per_keyword + 1):
-            data, error = _search(api_key, keyword, country, page)
+            data, error = _search_throttled(api_key, keyword, country, page)
             if error:
                 errors[error] = errors.get(error, 0) + 1
                 break
@@ -25,8 +27,19 @@ def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
                 job = _to_job(item, region)
                 if job.title:
                     jobs.setdefault(job.id, job)
+            time.sleep(settings.fetch.jsearch_delay_s)
     error_summary = ", ".join(f"{msg} x{count}" for msg, count in sorted(errors.items()))
     return list(jobs.values()), error_summary or None
+
+
+def _search_throttled(
+    api_key: str, keyword: str, country: str, page: int
+) -> tuple[dict | None, str | None]:
+    data, error = _search(api_key, keyword, country, page)
+    if error == "HTTP 429":
+        time.sleep(settings.fetch.retry_backoff_s)
+        return _search(api_key, keyword, country, page)
+    return data, error
 
 
 def _search(api_key: str, keyword: str, country: str, page: int) -> tuple[dict | None, str | None]:

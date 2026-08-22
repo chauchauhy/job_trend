@@ -1,18 +1,17 @@
 # Job Trend
 
-Rule-based skill-trend explorer: free job APIs (JSearch / Jooble / Jobicy / Remotive / RemoteOK) → skill lexicon → Streamlit chat.
+Rule-based skill-trend explorer: free job APIs (JSearch / Jobicy / Remotive / RemoteOK) → skill lexicon → Streamlit chat.
 
 ## Run
 
 ```powershell
 pip install -r requirements.txt
-copy .env.example .env   # paste your keys
+copy .env.example .env   # paste your JSearch key
 streamlit run main.py
 ```
 
-Keys (both optional, at least one needed for Hong Kong):
-- `JSEARCH_API_KEY` — RapidAPI [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) BASIC plan (free 200 req/month, no card). HK refresh ≈ 14 requests.
-- `JOOBLE_API_KEY` — jooble.org fallback for HK.
+Key (needed only for Hong Kong):
+- `JSEARCH_API_KEY` — RapidAPI [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) BASIC plan (free 200 req/month, no card). HK refresh ≈ 14 requests. Make sure you click **Subscribe to Basic** on that page — a bare RapidAPI key without the subscription returns 403.
 
 USA/Global work keyless via Jobicy + Remotive + RemoteOK.
 

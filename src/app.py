@@ -31,7 +31,7 @@ def run() -> None:
     st.title(settings.app.title)
     st.caption(
         "Rule-based skill-trend explorer over free job APIs "
-        "(Jooble / JSearch / Jobicy / Remotive / RemoteOK). "
+        "(JSearch / Jobicy / Remotive / RemoteOK). "
         "Ask things like **top skills**, **python**, or **compare hk vs usa**."
     )
     _render_dashboard()
@@ -86,8 +86,8 @@ def _render_sidebar() -> None:
         if st.button("Refresh jobs", type="primary", use_container_width=True):
             _refresh(region)
 
-        if not settings.api.jooble_api_key and not settings.api.jsearch_api_key:
-            st.warning("No Jooble/JSearch key in `.env` — Hong Kong will stay empty.")
+        if not settings.api.jsearch_api_key:
+            st.warning("No `JSEARCH_API_KEY` in `.env` — Hong Kong will stay empty.")
 
         jobs = st.session_state.get(region)
         if jobs is None:
@@ -118,12 +118,11 @@ def _render_sidebar() -> None:
 
         st.divider()
         st.caption(
-            "Sources: [Jooble](https://jooble.org) · "
-            "[JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) · "
+            "Sources: [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) · "
             "[Jobicy](https://jobicy.com) · "
             "[Remotive](https://remotive.com) · "
             "[RemoteOK](https://remoteok.com). "
-            "Remote boards enrich USA/Global; HK uses Jooble/JSearch."
+            "Remote boards enrich USA/Global; HK uses JSearch."
         )
 
 

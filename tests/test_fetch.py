@@ -50,7 +50,7 @@ def test_disk_cache_round_trip(monkeypatch, tmp_path):
     monkeypatch.setattr(fetch_mod, "cache_path", lambda region: tmp_path / "usa.json")
     jobs = [
         make_job(job_id="r1", regions=("USA", "Global"), tags=("QA & Testing",)),
-        make_job(job_id="r2", source="jooble", regions=("USA",)),
+        make_job(job_id="r2", source="jobicy", regions=("USA",)),
     ]
     fetch_mod.save_cache("USA", jobs, fetched_at=1234.5)
     loaded = fetch_mod.load_cached("USA")
@@ -58,7 +58,7 @@ def test_disk_cache_round_trip(monkeypatch, tmp_path):
     restored, fetched_at = loaded
     assert fetched_at == 1234.5
     assert restored == jobs
-    assert next(iter(restored[0].regions)) == "USA"
+    assert restored[0].regions == frozenset({"USA", "Global"})
 
 
 def test_serialization_preserves_frozenset_and_tuples():

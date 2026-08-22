@@ -39,9 +39,7 @@ class DisplayConfig:
 
 @dataclass(frozen=True, slots=True)
 class ApiConfig:
-    jooble_api_key: str = field(default_factory=lambda: os.getenv("JOOBLE_API_KEY", ""))
     jsearch_api_key: str = field(default_factory=lambda: os.getenv("JSEARCH_API_KEY", ""))
-    jooble_base_url: str = "https://jooble.org/api"
     jobicy_url: str = "https://jobicy.com/api/v2/remote-jobs"
     remotive_url: str = "https://remotive.com/api/remote-jobs"
     remoteok_url: str = "https://remoteok.com/api"
@@ -53,8 +51,9 @@ class ApiConfig:
 @dataclass(frozen=True, slots=True)
 class FetchConfig:
     max_jobs_per_region: int = 150
-    jooble_max_pages_per_keyword: int = 3
     jsearch_max_pages_per_keyword: int = 2
+    jsearch_delay_s: float = 1.1
+    retry_backoff_s: float = 2.5
     jobicy_count: int = 50
     request_delay_s: float = 0.4
     cache_ttl_hours: int = 6

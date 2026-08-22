@@ -5,7 +5,7 @@ from collections import Counter
 
 from config import JSEARCH_COUNTRY, REMOTE_SOURCES_REGIONS, settings
 from src.models import Job, job_from_dict, job_to_dict
-from src.sources import jobicy, jooble, jsearch, remoteok, remotive
+from src.sources import jobicy, jsearch, remoteok, remotive
 
 _DESC_PREVIEW_CHARS = 600
 _KEYWORDS_MTIME: float | None = None
@@ -17,19 +17,10 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
     keywords = _load_keywords()
     merged: dict[str, Job] = {}
 
-    has_jooble = bool(settings.api.jooble_api_key)
     has_jsearch = bool(settings.api.jsearch_api_key)
 
-    if region == "Hong Kong" and not (has_jooble or has_jsearch):
-        warnings.append("Hong Kong needs JOOBLE_API_KEY or JSEARCH_API_KEY in .env.")
-
-    if has_jooble:
-        jooble_jobs, jooble_error = jooble.fetch(keywords["search_queries"], region)
-        if jooble_error:
-            warnings.append(f"Jooble failed ({jooble_error}) — check your key at jooble.org/api.")
-        elif not jooble_jobs:
-            warnings.append("Jooble returned no matches for the configured keywords.")
-        _merge(merged, jooble_jobs)
+    if region == "Hong Kong" and not has_jsearch:
+        warnings.append("Hong Kong needs JSEARCH_API_KEY in .env (free: rapidapi.com → JSearch BASIC).")
 
     if region in JSEARCH_COUNTRY and has_jsearch:
         js_jobs, js_error = jsearch.fetch(keywords["search_queries"], region)
@@ -62,7 +53,7 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
             "Relevance filter kept nothing — loosen relevance_terms in res/config/keywords.json."
         )
 
-    relevant.sort(key=lambda j: (j.source != "jooble", j.title.lower()))
+    relevant.sort(key=lambda j: (j.source != "jsearch", j.title.lower()))
     selected = relevant[: settings.fetch.max_jobs_per_region]
     fetched_at = time.time()
     save_cache(region, selected, fetched_at)
