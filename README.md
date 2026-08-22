@@ -11,7 +11,7 @@ streamlit run main.py
 ```
 
 Key (needed only for Hong Kong):
-- `JSEARCH_API_KEY` — RapidAPI [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) BASIC plan (free 200 req/month, no card). HK refresh ≈ 14 requests. Make sure you click **Subscribe to Basic** on that page — a bare RapidAPI key without the subscription returns 403.
+- `JSEARCH_API_KEY` — get it at [app.openwebninja.com/api/jsearch](https://app.openwebninja.com/api/jsearch) (free tier available). HK refresh ≈ 14 requests. The key must come from the OpenWeb Ninja portal — a RapidAPI key will not work here.
 
 USA/Global work keyless via Jobicy + Remotive + RemoteOK.
 

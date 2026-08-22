@@ -118,7 +118,7 @@ def _render_sidebar() -> None:
 
         st.divider()
         st.caption(
-            "Sources: [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) · "
+            "Sources: [JSearch](https://app.openwebninja.com/api/jsearch) · "
             "[Jobicy](https://jobicy.com) · "
             "[Remotive](https://remotive.com) · "
             "[RemoteOK](https://remoteok.com). "

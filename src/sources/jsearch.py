@@ -1,22 +1,19 @@
 import time
 
-from config import JSEARCH_COUNTRY, settings
+from config import JSEARCH_COUNTRY, JSEARCH_QUERY_SUFFIX, settings
 from src.models import Job
 from src.sources.base import get_json, strip_html
-
-_RAPIDAPI_HOST = "jsearch.p.rapidapi.com"
 
 
 def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
     api_key = settings.api.jsearch_api_key
     if not api_key:
         return [], None
-    country = JSEARCH_COUNTRY[region]
     jobs: dict[str, Job] = {}
     errors: dict[str, int] = {}
     for keyword in keywords:
         for page in range(1, settings.fetch.jsearch_max_pages_per_keyword + 1):
-            data, error = _search_throttled(api_key, keyword, country, page)
+            data, error = _search_throttled(api_key, keyword, region, page)
             if error:
                 errors[error] = errors.get(error, 0) + 1
                 break
@@ -33,26 +30,33 @@ def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
 
 
 def _search_throttled(
-    api_key: str, keyword: str, country: str, page: int
+    api_key: str, keyword: str, region: str, page: int
 ) -> tuple[dict | None, str | None]:
-    data, error = _search(api_key, keyword, country, page)
+    data, error = _search(api_key, keyword, region, page)
     if error == "HTTP 429":
         time.sleep(settings.fetch.retry_backoff_s)
-        return _search(api_key, keyword, country, page)
+        return _search(api_key, keyword, region, page)
     return data, error
 
 
-def _search(api_key: str, keyword: str, country: str, page: int) -> tuple[dict | None, str | None]:
+def _build_query(keyword: str, region: str) -> str:
+    return keyword + JSEARCH_QUERY_SUFFIX.get(region, "")
+
+
+def _search(api_key: str, keyword: str, region: str, page: int) -> tuple[dict | None, str | None]:
+    params: dict[str, object] = {
+        "query": _build_query(keyword, region),
+        "page": page,
+        "num_pages": 1,
+        "date_posted": "all",
+    }
+    country = JSEARCH_COUNTRY.get(region)
+    if country:
+        params["country"] = country
     return get_json(
         f"{settings.api.jsearch_base_url}/search",
-        params={
-            "query": keyword,
-            "page": page,
-            "num_pages": 1,
-            "country": country,
-            "date_posted": "all",
-        },
-        headers={"x-rapidapi-key": api_key, "x-rapidapi-host": _RAPIDAPI_HOST},
+        params=params,
+        headers={"x-api-key": api_key},
     )
 
 

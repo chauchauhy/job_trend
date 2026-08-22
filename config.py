@@ -43,7 +43,7 @@ class ApiConfig:
     jobicy_url: str = "https://jobicy.com/api/v2/remote-jobs"
     remotive_url: str = "https://remotive.com/api/remote-jobs"
     remoteok_url: str = "https://remoteok.com/api"
-    jsearch_base_url: str = "https://jsearch.p.rapidapi.com"
+    jsearch_base_url: str = "https://api.openwebninja.com/jsearch"
     user_agent: str = "job-trend-demo/1.0 (streamlit; contact: local)"
     timeout_s: float = 20.0
 
@@ -67,9 +67,14 @@ REGIONS: dict[str, str] = {
 
 REMOTE_SOURCES_REGIONS: tuple[str, ...] = ("USA", "Global")
 
+JSEARCH_REGIONS: tuple[str, ...] = ("Hong Kong", "USA")
+
 JSEARCH_COUNTRY: dict[str, str] = {
-    "Hong Kong": "hk",
     "USA": "us",
+}
+
+JSEARCH_QUERY_SUFFIX: dict[str, str] = {
+    "Hong Kong": " jobs in hong kong",
 }
 
 REGION_ALIASES: dict[str, str] = {

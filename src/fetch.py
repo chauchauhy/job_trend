@@ -3,7 +3,7 @@ import re
 import time
 from collections import Counter
 
-from config import JSEARCH_COUNTRY, REMOTE_SOURCES_REGIONS, settings
+from config import JSEARCH_REGIONS, REMOTE_SOURCES_REGIONS, settings
 from src.models import Job, job_from_dict, job_to_dict
 from src.sources import jobicy, jsearch, remoteok, remotive
 
@@ -22,7 +22,7 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
     if region == "Hong Kong" and not has_jsearch:
         warnings.append("Hong Kong needs JSEARCH_API_KEY in .env (free: rapidapi.com → JSearch BASIC).")
 
-    if region in JSEARCH_COUNTRY and has_jsearch:
+    if region in JSEARCH_REGIONS and has_jsearch:
         js_jobs, js_error = jsearch.fetch(keywords["search_queries"], region)
         if js_error:
             warnings.append(f"JSearch failed ({js_error}).")
