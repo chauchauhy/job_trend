@@ -2,106 +2,144 @@ import html
 
 import streamlit as st
 
-REGION_COLORS: dict[str, str] = {
-    "Hong Kong": "#C43A2F",
-    "USA": "#27496D",
-    "Global": "#3E6B4F",
+REGION_DOTS: dict[str, str] = {
+    "Hong Kong": "#FF6B6B",
+    "USA": "#5B8DEF",
+    "Global": "#34D399",
 }
 
 CATEGORY_COLORS: dict[str, str] = {
-    "languages": "#27496D",
-    "frameworks_web": "#C2401C",
-    "cloud_devops": "#0E7C5B",
-    "data_ai": "#6B4FA1",
-    "databases": "#8A6D1D",
-    "mobile": "#B03A5B",
-    "practices": "#5A6B60",
+    "languages": "#7DA2FF",
+    "frameworks_web": "#FF9E7D",
+    "cloud_devops": "#4FD1B5",
+    "data_ai": "#C39BFF",
+    "databases": "#F2C879",
+    "mobile": "#FF8FB1",
+    "practices": "#8CA0B8",
 }
 
 
 def category_color(category: str) -> str:
-    return CATEGORY_COLORS.get(category, "#5A6B60")
+    return CATEGORY_COLORS.get(category, "#8CA0B8")
 
 
-def _esc(text: str) -> str:
+def _esc(text: object) -> str:
     return html.escape(str(text), quote=True)
 
 
 def inject_theme(region: str) -> None:
-    region_color = REGION_COLORS.get(region, REGION_COLORS["Global"])
-    css = _CSS.replace("__REGION__", region_color)
+    dot = REGION_DOTS.get(region, REGION_DOTS["Global"])
+    css = _CSS.replace("__REGION__", dot)
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
-def render_masthead(region: str) -> None:
-    region_color = REGION_COLORS.get(region, REGION_COLORS["Global"])
+def brand(region: str) -> None:
+    dot = REGION_DOTS.get(region, REGION_DOTS["Global"])
     st.markdown(
         f"""
-        <div class="mast">
-            <span class="wordmark">JOB<span class="slash">/</span>TREND</span>
-            <span class="rtag" style="background:{region_color}">{_esc(region.upper())}</span>
-            <span class="mast-note">SKILL DEMAND TAPE</span>
+        <div class="brand">
+            <span class="dot" style="background:{dot}"></span>
+            JobTrend
+            <small>console</small>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-
-def render_ticker(stats: list, limit: int = 10) -> None:
-    cells = "".join(
-        f"<span class='cell'><b style='color:{category_color(s.category)}'>{_esc(s.name)}</b>"
-        f"<span class='num'>&nbsp;+{s.count}</span><span class='tri' style='color:{category_color(s.category)}'>▲</span></span>"
-        for s in stats[:limit]
-    )
-    st.markdown(
-        f"<div class='tape'><div class='tape__track'>{cells}{cells}</div></div>",
-        unsafe_allow_html=True,
-    )
-
-
-def skill_bars(stats: list, limit: int = 12) -> None:
-    top = stats[:limit]
-    max_count = top[0].count if top else 1
-    rows = "".join(
-        f"""
-        <div class="row">
-            <span class="row__name">{_esc(s.name)}</span>
-            <span class="row__track"><span class="row__fill" style="width:{round(s.count / max_count * 100, 1)}%;background:{category_color(s.category)}"></span></span>
-            <span class="row__num">{s.count} · {s.pct}%</span>
-        </div>
-        """
-        for s in top
-    )
-    st.markdown(f"<div class='bars'>{rows}</div>", unsafe_allow_html=True)
-
-
-def dash_head(title: str, count_label: str) -> None:
-    st.markdown(
-        f"""
-        <div class="dash-head">
-            <span class="dash-title">{_esc(title)}</span>
-            <span class="dash-count">{_esc(count_label)}</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def category_mix(stats: list) -> None:
-    totals: dict[str, int] = {}
-    for s in stats:
-        totals[s.category] = totals.get(s.category, 0) + s.count
-    grand = sum(totals.values()) or 1
-    parts = [
-        f"<span style='color:{category_color(cat)}'>●</span> {cat} {round(n / grand * 100)}%"
-        for cat, n in sorted(totals.items(), key=lambda kv: -kv[1])
-    ]
-    st.markdown(f"<div class='cat-mix'>MIX&nbsp;&nbsp;{'&nbsp;&nbsp;·&nbsp;&nbsp;'.join(parts)}</div>", unsafe_allow_html=True)
 
 
 def status_chip(text: str, tone: str = "neutral") -> None:
     tone_class = {"up": "chip--up", "signal": "chip--signal", "neutral": "chip--neutral"}.get(tone, "chip--neutral")
     st.markdown(f"<span class='chip {tone_class}'>{_esc(text)}</span>", unsafe_allow_html=True)
+
+
+def kpi_tiles(tiles: list[tuple[str, str, str]]) -> None:
+    cols = st.columns(len(tiles))
+    for col, (label, value, sub) in zip(cols, tiles):
+        col.markdown(
+            f"""
+            <div class="card kpi">
+                <span class="kpi__label">{_esc(label)}</span>
+                <span class="kpi__value">{_esc(value)}</span>
+                <span class="kpi__sub">{_esc(sub)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def section_title(title: str, note: str = "") -> None:
+    note_html = f"<span class='sec-note'>{_esc(note)}</span>" if note else ""
+    st.markdown(f"<div class='sec-head'>{_esc(title)}{note_html}</div>", unsafe_allow_html=True)
+
+
+def demand_chart(stats: list, limit: int = 12) -> None:
+    import altair as alt
+    import pandas as pd
+
+    top = stats[:limit]
+    frame = pd.DataFrame(
+        {
+            "skill": [s.name for s in top],
+            "jobs": [s.count for s in top],
+            "share": [f"{s.pct}%" for s in top],
+            "category": [s.category for s in top],
+        }
+    )
+    order = frame.sort_values("jobs")["skill"].tolist()
+    domain = list(CATEGORY_COLORS.keys())
+    palette = list(CATEGORY_COLORS.values())
+    chart = (
+        alt.Chart(frame)
+        .mark_bar(cornerRadius=3, height=15)
+        .encode(
+            x=alt.X(
+                "jobs:Q",
+                title=None,
+                axis=alt.Axis(grid=True, gridColor="#1C2A42", labelColor="#93A4BD", tickColor="#1C2A42", domainColor="#1C2A42"),
+            ),
+            y=alt.Y("skill:N", sort=order, title=None, axis=alt.Axis(labelColor="#EAF0FA", labelFontSize=12.5, ticks=False, domain=False)),
+            color=alt.Color("category:N", scale=alt.Scale(domain=domain, range=palette), legend=None),
+            tooltip=[
+                alt.Tooltip("skill:N", title="skill"),
+                alt.Tooltip("category:N", title="category"),
+                alt.Tooltip("jobs:Q", title="listings"),
+                alt.Tooltip("share:N", title="share"),
+            ],
+        )
+        .configure(background="#131C2E")
+        .configure_view(stroke=None)
+        .properties(height=27 * len(top) + 18)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def category_donut(stats: list) -> None:
+    import altair as alt
+    import pandas as pd
+
+    totals: dict[str, int] = {}
+    for s in stats:
+        totals[s.category] = totals.get(s.category, 0) + s.count
+    frame = pd.DataFrame({"category": list(totals), "mentions": list(totals.values())})
+    domain = [c for c in CATEGORY_COLORS if c in totals]
+    palette = [CATEGORY_COLORS[c] for c in domain]
+    chart = (
+        alt.Chart(frame)
+        .mark_arc(innerRadius=58, outerRadius=105, cornerRadius=3)
+        .encode(
+            theta=alt.Theta("mentions:Q"),
+            color=alt.Color(
+                "category:N",
+                scale=alt.Scale(domain=list(CATEGORY_COLORS.keys()), range=list(CATEGORY_COLORS.values())),
+                legend=alt.Legend(orient="bottom", labelColor="#93A4BD", labelFontSize=11.5, symbolType="circle", columns=2),
+            ),
+            tooltip=[alt.Tooltip("category:N", title="category"), alt.Tooltip("mentions:Q", title="mentions")],
+        )
+        .configure(background="#131C2E")
+        .configure_view(stroke=None)
+        .properties(height=250)
+    )
+    st.altair_chart(chart, use_container_width=True)
 
 
 def side_label(label: str) -> None:
@@ -119,73 +157,57 @@ def warn_line(text: str) -> None:
     st.markdown(f"<div class='warn-line'>⌁ {_esc(text)}</div>", unsafe_allow_html=True)
 
 
-def bot_rule() -> None:
-    st.markdown("<div class='bot-rule'></div>", unsafe_allow_html=True)
-
-
 def user_line(text: str) -> None:
     st.markdown(f"<div class='msg-user'><code>&gt; {_esc(text)}</code></div>", unsafe_allow_html=True)
 
 
+def assistant_rule() -> None:
+    st.markdown("<div class='bot-rule'></div>", unsafe_allow_html=True)
+
+
 _CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 
 :root{
-    --desk:#ECEFEA; --panel:#E3E8DF; --ink:#161D1A; --muted:#5A6B60;
-    --line:#C8CEC6; --up:#0E7C5B; --signal:#C2401C;
-    --region:__REGION__;
+    --canvas:#0C1220; --card:#131C2E; --card2:#18243A; --border:#22304A;
+    --ink:#EAF0FA; --muted:#93A4BD; --primary:#6C8CFF;
+    --up:#34D399; --signal:#F87171; --region:__REGION__;
 }
-.stApp{background:var(--desk);color:var(--ink);font-family:'Instrument Sans',system-ui,sans-serif;}
-#MainMenu{visibility:hidden;}
-footer{visibility:hidden;}
+.stApp{background:var(--canvas);color:var(--ink);font-family:'Inter',system-ui,sans-serif;}
 header[data-testid="stHeader"]{background:transparent;}
-.block-container{padding-top:1.2rem;}
+footer{visibility:hidden;}
+#MainMenu{visibility:hidden;}
+.block-container{padding-top:.9rem;max-width:1440px;}
 
-.mast{display:flex;align-items:center;gap:14px;padding:2px 2px 8px;border-bottom:3px solid var(--region);}
-.wordmark{font-family:'Archivo Black',sans-serif;font-size:27px;line-height:1;text-transform:uppercase;letter-spacing:.5px;color:var(--ink);}
-.wordmark .slash{color:var(--up);}
-.rtag{font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;color:#fff;padding:4px 12px;border-radius:999px;letter-spacing:.12em;}
-.mast-note{margin-left:auto;font-family:'Spline Sans Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--muted);}
+.brand{display:flex;align-items:center;gap:9px;font-size:16.5px;font-weight:650;color:var(--ink);padding-top:6px;white-space:nowrap;}
+.brand .dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 10px currentColor;background-clip:padding-box;}
+.brand small{color:var(--muted);font-weight:500;font-size:12px;}
 
-.tape{overflow:hidden;background:var(--panel);border-bottom:1px solid var(--line);padding:7px 0;margin-bottom:10px;}
-.tape__track{display:inline-flex;white-space:nowrap;width:max-content;animation:tape 38s linear infinite;}
-.tape:hover .tape__track{animation-play-state:paused;}
-.cell{font-family:'Spline Sans Mono',monospace;font-size:13px;padding:0 20px;border-right:1px solid var(--line);}
-.cell .num{color:var(--ink);}
-.cell .tri{font-size:10px;margin-left:5px;}
-@keyframes tape{to{transform:translateX(-50%);}}
-@media (prefers-reduced-motion: reduce){.tape__track{animation:none;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 16px;}
+.kpi{min-height:96px;display:flex;flex-direction:column;justify-content:center;}
+.kpi__label{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.kpi__value{font-family:'IBM Plex Mono',monospace;font-size:29px;font-weight:600;line-height:1.15;margin-top:5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpi__sub{font-size:12px;color:var(--muted);margin-top:3px;}
 
-.dash-head{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 6px;}
-.dash-title{font-family:'Archivo Black',sans-serif;font-size:19px;text-transform:uppercase;letter-spacing:.03em;}
-.dash-count{font-family:'Spline Sans Mono',monospace;font-size:12px;letter-spacing:.14em;color:var(--muted);}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:18px 0 4px;font-weight:600;font-size:14.5px;}
+.sec-note{font-family:'IBM Plex Mono',monospace;font-weight:400;font-size:11.5px;letter-spacing:.1em;color:var(--muted);}
 
-.bars .row{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);}
-.row:last-child{border-bottom:none;}
-.row__name{flex:0 0 180px;font-weight:600;font-size:14.5px;}
-.row__track{flex:1;height:13px;background:var(--panel);}
-.row__fill{display:block;height:100%;border-radius:0 2px 2px 0;}
-.row__num{flex:0 0 92px;text-align:right;font-family:'Spline Sans Mono',monospace;font-size:12.5px;color:var(--muted);}
-
-.cat-mix{font-family:'Spline Sans Mono',monospace;font-size:12px;color:var(--muted);margin-top:12px;}
-
-.side-label{font-family:'Spline Sans Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase;margin:12px 0 4px;}
-.feed-row{display:flex;justify-content:space-between;font-family:'Spline Sans Mono',monospace;font-size:13px;padding:2px 0;}
+.side-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px;}
+.feed-row{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:2px 0;color:var(--ink);}
 .feed-row__num{color:var(--muted);}
 
-.chip{display:inline-block;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.12em;padding:3px 11px;border-radius:999px;border:1.5px solid var(--line);}
+.chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.12em;padding:3px 10px;border-radius:999px;border:1.5px solid var(--border);color:var(--muted);}
 .chip--up{color:var(--up);border-color:var(--up);}
 .chip--signal{color:var(--signal);border-color:var(--signal);}
-.chip--neutral{color:var(--muted);}
 
-.warn-line{font-family:'Spline Sans Mono',monospace;font-size:11.5px;color:var(--signal);padding:3px 0;line-height:1.45;}
+.warn-line{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--signal);padding:3px 0;line-height:1.45;}
 
-.msg-user code{font-family:'Spline Sans Mono',monospace;font-size:13.5px;color:var(--ink);background:var(--panel);padding:6px 10px;border-radius:6px;display:inline-block;white-space:pre-wrap;}
-.bot-rule{height:3px;width:52px;background:var(--region);margin:16px 0 4px;}
+.msg-user code{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink);background:var(--card2);border:1px solid var(--border);padding:6px 10px;border-radius:8px;display:inline-block;white-space:pre-wrap;}
+.bot-rule{height:2px;width:44px;background:var(--primary);border-radius:2px;margin:14px 0 4px;}
 
-.stChatInput textarea, div[data-testid="stChatInput"] textarea{background:#fff;}
-button[kind="primary"]{border-radius:6px !important;font-family:'Instrument Sans',sans-serif !important;}
-[data-testid="stSidebar"]{background:var(--desk);border-right:1px solid var(--line);}
-[data-testid="stExpander"]{border-color:var(--line);}
-.stDataFrame{font-family:'Spline Sans Mono',monospace;}
+[data-testid="stVerticalBlockBorderWrapper"]{background:var(--card)!important;border:1px solid var(--border)!important;border-radius:14px!important;}
+button[kind="primary"]{border-radius:8px !important;font-weight:600 !important;}
+[data-testid="stSidebar"]{background:#0A0F1B;border-right:1px solid var(--border);}
+[data-testid="stExpander"], [data-testid="stExpanderDetails"]{background:var(--card);border-color:var(--border);border-radius:12px;}
+.stChatInput textarea{background:var(--card2)!important;border:1px solid var(--border)!important;border-radius:10px!important;}
 """
