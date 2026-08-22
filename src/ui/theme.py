@@ -54,14 +54,16 @@ def inject_theme(region: str) -> None:
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
-def brand(region: str) -> None:
+def brand(region: str, version: str = "") -> None:
     dot = REGION_DOTS.get(region, REGION_DOTS["Global"])
+    version_html = f'<span class="beta">{_esc(version)}</span>' if version else ""
     st.markdown(
         f"""
         <div class="brand">
             <span class="dot" style="background:{dot}"></span>
             JobTrend
             <small>console</small>
+            {version_html}
         </div>
         """,
         unsafe_allow_html=True,
@@ -217,6 +219,7 @@ footer{visibility:hidden;}
 .brand{display:flex;align-items:center;gap:9px;font-size:16.5px;font-weight:700;color:var(--ink);padding-top:6px;white-space:nowrap;letter-spacing:-0.01em;}
 .brand .dot{width:8px;height:8px;border-radius:50%;box-shadow:0 0 12px currentColor;}
 .brand small{color:var(--muted);font-weight:500;font-size:12px;}
+.brand .beta{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 7px;margin-left:-3px;}
 
 .summary-strip{display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 18px;margin-bottom:14px;}
 .sum__item{font-size:13px;color:var(--muted);}

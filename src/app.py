@@ -96,7 +96,7 @@ def _refresh(region: str) -> None:
 def _topbar(region: str) -> None:
     left, mid, right = st.columns([1.0, 1.4, 1.0], vertical_alignment="center")
     with left:
-        brand(region)
+        brand(region, settings.app.version)
     with mid:
         st.segmented_control("Market", list(REGIONS), key="region", label_visibility="collapsed")
     with right:

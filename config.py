@@ -21,6 +21,7 @@ class Paths:
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     title: str = "Job Trend"
+    version: str = "Beta"
     layout: str = "wide"
     page_icon: str | None = None
 
