@@ -21,10 +21,10 @@ from src.ui.theme import (
     demand_chart,
     feed_row,
     inject_theme,
-    kpi_tiles,
     section_title,
     side_label,
     status_chip,
+    summary_strip,
     user_line,
     warn_line,
 )
@@ -42,14 +42,13 @@ def run() -> None:
     )
     _init_state()
     region = st.session_state.region
-    dark = st.session_state.get("mode", "Light") == "Dark"
-    inject_theme(region, dark=dark)
+    inject_theme(region)
     jobs = st.session_state.get(region)
     stats = st.session_state.get(f"_stats_{region}") or []
 
     _topbar(region)
     _render_sidebar()
-    _kpis(region, jobs, stats)
+    _summary_strip(region, jobs, stats)
     _chart_grid(jobs, stats)
     _assistant(region)
 
@@ -95,15 +94,13 @@ def _refresh(region: str) -> None:
 
 
 def _topbar(region: str) -> None:
-    left, mid, right = st.columns([1.0, 1.3, 1.6], vertical_alignment="center")
+    left, mid, right = st.columns([1.0, 1.4, 1.0], vertical_alignment="center")
     with left:
         brand(region)
     with mid:
         st.segmented_control("Market", list(REGIONS), key="region", label_visibility="collapsed")
     with right:
-        mode_col, button_col, chip_col = right.columns([0.72, 1.05, 0.85])
-        with mode_col:
-            st.segmented_control("Theme", ["Light", "Dark"], key="mode", default="Light", label_visibility="collapsed")
+        button_col, chip_col = right.columns([1.1, 1.0])
         if button_col.button("⟳ Refresh", type="primary", width="stretch"):
             _refresh(st.session_state.region)
         fetched_at = st.session_state.get(f"_fetched_{region}")
@@ -163,37 +160,38 @@ def _render_sidebar() -> None:
         )
 
 
-def _kpis(region: str, jobs: list | None, stats: list) -> None:
-    section_title(f"{region} snapshot", f"TTL {settings.fetch.cache_ttl_hours}H CACHE")
-    if not stats:
-        tiles = [
-            ("Listings pulled", str(len(jobs)) if jobs else "—", region),
-            ("Top skill", "—", "no data yet"),
-            ("Top share", "—", "of analyzed pool"),
-            ("Skills tracked", str(len(stats)), "in current lexicon"),
-        ]
+def _summary_strip(region: str, jobs: list | None, stats: list) -> None:
+    items: list[tuple[str, str]] = []
+    if jobs is None:
+        items.append(("status", "no pull yet"))
+    elif len(jobs) == 0:
+        items.append(("listings", "0 — see notes"))
     else:
-        lead = stats[0]
-        tiles = [
-            ("Listings pulled", str(len(jobs)), "after filtering"),
-            ("Top skill", lead.name, f"{lead.count} mentions"),
-            ("Top share", f"{lead.pct}%", "of listings"),
-            ("Skills tracked", str(len(stats)), "in current lexicon"),
-        ]
-    kpi_tiles(tiles)
+        items.append(("listings analyzed", str(len(jobs))))
+        if stats:
+            lead = stats[0]
+            items.append(("top skill", f"{lead.name} ({lead.pct}%)"))
+        items.append(("skills tracked", str(len(stats))))
+        fetched_at = st.session_state.get(f"_fetched_{region}")
+        if fetched_at:
+            age_min = int((time.time() - fetched_at) / 60)
+            note = "just now" if age_min < 1 else f"{age_min} min ago"
+            items.append(("pulled", note))
+    section_title(f"{region} market")
+    summary_strip(items)
 
 
 def _chart_grid(jobs: list | None, stats: list) -> None:
-    shared_height = 27 * min(len(stats), 12) + 18 if stats else 260
-    left, right = st.columns([1.55, 1.0], gap="medium")
+    shared_height = 30 * min(len(stats), 14) + 24 if stats else 300
+    left, right = st.columns([2.0, 1.0], gap="medium")
     with left:
-        section_title("Skill demand", "TOP 12 BY MENTIONS")
+        section_title("Skill demand", "TOP 14 BY MENTIONS")
         if stats:
             with st.container(border=True):
                 demand_chart(stats, height=shared_height)
         else:
             st.markdown(
-                "<div class='card' style='color:#666666'>No tape yet — hit <b>⟳ Refresh</b> to pull the first batch.</div>",
+                "<div class='card' style='color:#A1A1AA'>No data yet — hit <b>⟳ Refresh</b> to pull the first batch.</div>",
                 unsafe_allow_html=True,
             )
     with right:
@@ -202,7 +200,7 @@ def _chart_grid(jobs: list | None, stats: list) -> None:
             with st.container(border=True):
                 category_donut(stats, height=shared_height)
         else:
-            st.markdown("<div class='card' style='color:#666666'>Waiting on data.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='card' style='color:#A1A1AA'>Waiting on data.</div>", unsafe_allow_html=True)
 
     if stats:
         with st.expander("Full skill table"):
