@@ -42,7 +42,8 @@ def run() -> None:
     )
     _init_state()
     region = st.session_state.region
-    inject_theme(region)
+    dark = st.session_state.get("mode", "Light") == "Dark"
+    inject_theme(region, dark=dark)
     jobs = st.session_state.get(region)
     stats = st.session_state.get(f"_stats_{region}") or []
 
@@ -94,14 +95,16 @@ def _refresh(region: str) -> None:
 
 
 def _topbar(region: str) -> None:
-    left, mid, right = st.columns([1.0, 1.4, 1.0], vertical_alignment="center")
+    left, mid, right = st.columns([1.0, 1.3, 1.6], vertical_alignment="center")
     with left:
         brand(region)
     with mid:
         st.segmented_control("Market", list(REGIONS), key="region", label_visibility="collapsed")
     with right:
-        button_col, chip_col = right.columns([1.1, 1.0])
-        if button_col.button("⟳ Refresh", type="primary", use_container_width=True):
+        mode_col, button_col, chip_col = right.columns([0.72, 1.05, 0.85])
+        with mode_col:
+            st.segmented_control("Theme", ["Light", "Dark"], key="mode", default="Light", label_visibility="collapsed")
+        if button_col.button("⟳ Refresh", type="primary", width="stretch"):
             _refresh(st.session_state.region)
         fetched_at = st.session_state.get(f"_fetched_{region}")
         jobs = st.session_state.get(region)

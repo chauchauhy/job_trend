@@ -30,3 +30,13 @@ def test_chat_chip_flow():
     target = next(b for b in buttons if b.key.endswith("top skills"))
     target.click().run()
     assert not at.exception
+
+
+def test_dark_mode_toggle():
+    at = AppTest.from_file(_MAIN, default_timeout=60)
+    at.run()
+    theme_seg = next(s for s in at.segmented_control if getattr(s, "key", "") == "mode")
+    theme_seg.set_value("Dark").run()
+    assert not at.exception
+    styles = " ".join(str(m.value) for m in at.markdown)
+    assert "--canvas:#0A0A0A" in styles or "#0A0A0A" in styles
