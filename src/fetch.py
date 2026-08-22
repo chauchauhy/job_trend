@@ -20,14 +20,16 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
     has_jsearch = bool(settings.api.jsearch_api_key)
 
     if region == "Hong Kong" and not has_jsearch:
-        warnings.append("Hong Kong needs JSEARCH_API_KEY in .env (free: rapidapi.com → JSearch BASIC).")
+        warnings.append("Add JSEARCH_API_KEY to .env to pull Hong Kong (free at app.openwebninja.com/api/jsearch).")
 
     if region in JSEARCH_REGIONS and has_jsearch:
         js_jobs, js_error = jsearch.fetch(keywords["search_queries"], region)
-        if js_error:
-            warnings.append(f"JSearch failed ({js_error}).")
+        if js_error and "403" in js_error:
+            warnings.append(f"JSearch rejected the key ({js_error}) — confirm the OpenWeb Ninja plan is active.")
+        elif js_error:
+            warnings.append(f"JSearch request failed ({js_error}).")
         elif not js_jobs:
-            warnings.append("JSearch returned no matches for the configured keywords.")
+            warnings.append("JSearch matched nothing for the configured keywords.")
         _merge(merged, js_jobs)
 
     if region in REMOTE_SOURCES_REGIONS:
@@ -38,16 +40,16 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
         ):
             jobs, error = fetch_remote()
             if error:
-                warnings.append(f"{label} failed ({error}).")
+                warnings.append(f"{label} feed unreachable ({error}).")
             elif not jobs:
-                warnings.append(f"{label} returned no jobs.")
+                warnings.append(f"{label} feed was empty.")
             _merge(merged, jobs)
 
     pool = _filter_by_region(merged.values(), region)
     relevant = [job for job in pool if _is_relevant(job)]
     dropped = len(pool) - len(relevant)
     if dropped:
-        warnings.append(f"Dropped {dropped} off-topic listings (title/tags/description match required).")
+        warnings.append(f"Filtered out {dropped} off-topic listings.")
     if not relevant and pool:
         warnings.append(
             "Relevance filter kept nothing — loosen relevance_terms in res/config/keywords.json."

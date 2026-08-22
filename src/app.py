@@ -14,6 +14,21 @@ from config import REGIONS, settings
 from src.analysis.skills import compute_stats, top_skills
 from src.chat.handler import respond
 from src.fetch import cache_is_fresh, load_cached, refresh_region, source_counts
+from src.ui.theme import (
+    REGION_COLORS,
+    bot_rule,
+    category_mix,
+    dash_head,
+    feed_row,
+    inject_theme,
+    render_masthead,
+    render_ticker,
+    side_label,
+    skill_bars,
+    status_chip,
+    user_line,
+    warn_line,
+)
 
 MAX_HISTORY = 50
 
@@ -27,15 +42,19 @@ def run() -> None:
         layout=settings.app.layout,
     )
     _init_state()
+    region = st.session_state.region
+    inject_theme(region)
+    render_masthead(region)
+
+    stats = st.session_state.get(f"_stats_{region}") or []
+    if stats:
+        render_ticker(stats)
+    else:
+        st.markdown("<div class='tape'><div class='tape__track'></div></div>", unsafe_allow_html=True)
+
     _render_sidebar()
-    st.title(settings.app.title)
-    st.caption(
-        "Rule-based skill-trend explorer over free job APIs "
-        "(JSearch / Jobicy / Remotive / RemoteOK). "
-        "Ask things like **top skills**, **python**, or **compare hk vs usa**."
-    )
-    _render_dashboard()
-    _render_chat()
+    _render_dashboard(region)
+    _render_chat(region)
 
 
 def _config_changed_since(fetched_at: float | None) -> bool:
@@ -70,7 +89,7 @@ def _init_state() -> None:
 
 
 def _refresh(region: str) -> None:
-    with st.spinner(f"Fetching {region} jobs from APIs..."):
+    with st.spinner(f"Pulling the {region} tape…"):
         jobs, warnings = refresh_region(region)
     st.session_state[region] = jobs
     st.session_state[f"_fetched_{region}"] = time.time()
@@ -80,90 +99,97 @@ def _refresh(region: str) -> None:
 
 def _render_sidebar() -> None:
     with st.sidebar:
-        st.header("Controls")
-        region = st.radio("Region", list(REGIONS), key="region")
+        st.segmented_control("Market", list(REGIONS), key="region", label_visibility="collapsed")
 
         if st.button("Refresh jobs", type="primary", use_container_width=True):
-            _refresh(region)
+            _refresh(st.session_state.region)
 
         if not settings.api.jsearch_api_key:
-            st.warning("No `JSEARCH_API_KEY` in `.env` — Hong Kong will stay empty.")
+            warn_line("Add JSEARCH_API_KEY to .env to unlock Hong Kong.")
 
+        region = st.session_state.region
         jobs = st.session_state.get(region)
-        if jobs is None:
-            st.info("No data yet — hit **Refresh jobs**.")
-        elif len(jobs) == 0:
-            st.error("0 jobs cached. Check warnings below.")
-        else:
-            fetched_at = st.session_state.get(f"_fetched_{region}")
-            age_min = int((time.time() - fetched_at) / 60) if fetched_at else 0
-            badge = "🟢 fresh" if _is_fresh(fetched_at) else "🟠 stale"
-            note = " · config changed — refresh" if _config_changed_since(fetched_at) else ""
-            st.metric(
-                "Jobs cached",
-                len(jobs),
-                help=f"fetched {age_min} min ago · TTL {settings.fetch.cache_ttl_hours}h",
-            )
-            st.caption(f"{badge} · fetched {age_min} min ago{note}")
-            counts = source_counts(jobs)
-            st.write({source: int(n) for source, n in counts.items()})
-            stats = st.session_state.get(f"_stats_{region}") or []
-            if stats:
-                st.caption("Top 5 preview")
-                for s in stats[:5]:
-                    st.write(f"{s.name} · {s.count}")
 
-        for warning in st.session_state.get(f"_warn_{region}") or []:
-            st.warning(warning)
+        side_label("Feed")
+        if jobs is None:
+            st.markdown("<div class='feed-row'><span>no pull yet</span></div>", unsafe_allow_html=True)
+        elif len(jobs) == 0:
+            warn_line("Last pull returned 0 listings — check notes below.")
+        else:
+            counts = source_counts(jobs)
+            for source, count in counts.most_common():
+                feed_row(source, str(int(count)))
+            feed_row("total", str(len(jobs)))
+
+        fetched_at = st.session_state.get(f"_fetched_{region}")
+        if fetched_at and jobs:
+            age_min = int((time.time() - fetched_at) / 60)
+            fresh = _is_fresh(fetched_at)
+            status_chip("FRESH" if fresh else "STALE", tone="up" if fresh else "signal")
+            note = "config changed — re-pull" if _config_changed_since(fetched_at) else f"{age_min} min ago"
+            st.markdown(f"<div class='feed-row'><span class='feed-row__num'>{note}</span></div>", unsafe_allow_html=True)
+
+        warnings = st.session_state.get(f"_warn_{region}") or []
+        if warnings:
+            side_label(f"Notes ({len(warnings)})")
+            for warning in warnings:
+                warn_line(warning)
 
         st.divider()
         st.caption(
-            "Sources: [JSearch](https://app.openwebninja.com/api/jsearch) · "
+            "Feeds: [JSearch](https://app.openwebninja.com/api/jsearch) · "
             "[Jobicy](https://jobicy.com) · "
             "[Remotive](https://remotive.com) · "
             "[RemoteOK](https://remoteok.com). "
-            "Remote boards enrich USA/Global; HK uses JSearch."
+            "Remote boards cover USA/Global; Hong Kong runs on JSearch."
         )
 
 
-def _render_dashboard() -> None:
-    region = st.session_state.region
+def _render_dashboard(region: str) -> None:
     jobs = st.session_state.get(region)
-    stats = st.session_state.get(f"_stats_{region}")
-    if not jobs or not stats:
-        return
-    st.subheader(f"Dashboard · {region}")
-    frame = pd.DataFrame(
-        {
-            "skill": [s.name for s in stats],
-            "category": [s.category for s in stats],
-            "jobs": [s.count for s in stats],
-        }
-    )
-    top_stats = top_skills(stats)
-    top_frame = pd.DataFrame(
-        {"skill": [s.name for s in top_stats], "jobs": [s.count for s in top_stats]}
-    ).set_index("skill")
-    col_chart, col_cat = st.columns([3, 2])
-    with col_chart:
-        st.bar_chart(top_frame["jobs"], height=320)
-    with col_cat:
-        by_category = (
-            frame.groupby("category")["jobs"].sum().sort_values(ascending=False).to_frame("mentions")
+    stats = st.session_state.get(f"_stats_{region}") or []
+
+    dash_head(f"Top Skills · {region}", f"{len(jobs) if jobs else 0} LISTINGS")
+
+    if not jobs:
+        st.markdown(
+            "<div class='cat-mix'>No tape yet — hit <b>Refresh jobs</b> to pull the first batch.</div>",
+            unsafe_allow_html=True,
         )
-        st.dataframe(by_category, use_container_width=True)
+        return
+    if not stats:
+        return
+
+    skill_bars(stats)
+    category_mix(stats)
+
     with st.expander("Full skill table"):
+        frame = pd.DataFrame(
+            {
+                "skill": [s.name for s in stats],
+                "category": [s.category for s in stats],
+                "jobs": [s.count for s in stats],
+                "%": [s.pct for s in stats],
+            }
+        )
         st.dataframe(frame, use_container_width=True, hide_index=True)
 
 
-def _render_chat() -> None:
+def _render_chat(region: str) -> None:
     for role, text, df in st.session_state.messages:
-        with st.chat_message(role):
+        if role == "user":
+            user_line(text)
+        else:
+            bot_rule()
             st.markdown(text)
             if df is not None and not df.empty:
                 st.dataframe(df, use_container_width=True, hide_index=True)
-                if {"skill", "jobs"}.issubset(df.columns):
-                    st.bar_chart(df.set_index("skill")["jobs"], height=320)
+
+    if not st.session_state.messages and not st.session_state.get(region):
+        st.markdown(
+            "<div class='cat-mix'>Ask about any skill once a pull exists — try <b>top skills</b>.</div>",
+            unsafe_allow_html=True,
+        )
 
     chip_cols = st.columns(len(_CHIPS))
     clicked_chip: str | None = None
@@ -171,11 +197,11 @@ def _render_chat() -> None:
         if col.button(chip, use_container_width=True):
             clicked_chip = chip
 
-    prompt = clicked_chip or st.chat_input("e.g. what's hot here?")
+    prompt = clicked_chip or st.chat_input("Ask the tape…")
     if not prompt:
         return
     st.session_state.messages.append(("user", prompt, None))
-    reply_text, reply_df = respond(prompt, st.session_state.region, st.session_state)
+    reply_text, reply_df = respond(prompt, region, st.session_state)
     st.session_state.messages.append(("assistant", reply_text, reply_df))
     st.session_state.messages = st.session_state.messages[-MAX_HISTORY:]
     st.rerun()
