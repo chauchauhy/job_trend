@@ -88,14 +88,17 @@ def section_title(title: str, note: str = "") -> None:
     st.markdown(f"<div class='sec-head'>{_esc(title)}{note_html}</div>", unsafe_allow_html=True)
 
 
-def demand_chart(stats: list, limit: int = 14, height: int | None = None) -> None:
+def demand_chart(
+    stats: list, limit: int = 14, height: int | None = None, owned: list[str] | None = None
+) -> None:
     import altair as alt
     import pandas as pd
 
+    owned_set = set(owned or [])
     top = stats[:limit]
     frame = pd.DataFrame(
         {
-            "skill": [s.name for s in top],
+            "skill": [f"{s.name} ✓" if s.name in owned_set else s.name for s in top],
             "jobs": [s.count for s in top],
             "share": [f"{s.pct}%" for s in top],
             "category": [s.category for s in top],
@@ -324,6 +327,7 @@ footer{visibility:hidden;}
 .chip--signal{color:var(--signal);border-color:var(--signal);}
 
 .warn-line{font-size:12px;color:var(--signal);padding:3px 0;line-height:1.5;}
+.gap-line{font-size:12px;color:var(--muted);margin:-2px 0 8px;}
 
 .msg-user code{font-size:13px;color:var(--ink);background:var(--card2);border:1px solid var(--border);padding:6px 10px;border-radius:10px;display:inline-block;white-space:pre-wrap;}
 .bot-rule{height:2px;width:40px;background:var(--accent);border-radius:2px;margin:14px 0 4px;}

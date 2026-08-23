@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import src.app as app_module
+import src.fetch as fetch_module
 
 _MAIN = str(Path(__file__).resolve().parents[1] / "main.py")
 
@@ -13,8 +13,8 @@ _REFRESH_LABEL = "⟳ Refresh"
 
 @pytest.fixture(autouse=True)
 def _stub_refresh_region(monkeypatch):
-    monkeypatch.setattr(app_module, "refresh_region", lambda region: ([], ["stubbed pull"]))
-    monkeypatch.setattr(app_module, "record_snapshot", lambda *args, **kwargs: None)
+    monkeypatch.setattr(fetch_module, "refresh_region", lambda region: ([], ["stubbed pull"]))
+    monkeypatch.setattr(fetch_module, "record_snapshot", lambda *args, **kwargs: None)
 
 
 def _refresh_button(at):

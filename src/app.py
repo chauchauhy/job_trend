@@ -11,10 +11,11 @@ import pandas as pd
 import streamlit as st
 
 from config import REGIONS, settings
-from src.analysis.history import load_history, record_snapshot
+from src.analysis.gap import load_own_skills, normalize_skills, save_own_skills
+from src.analysis.history import load_history
 from src.analysis.skills import compute_stats, get_matcher, top_skills
 from src.chat.handler import respond
-from src.fetch import cache_is_fresh, load_cached, refresh_region, source_counts
+from src.fetch import cache_is_fresh, load_cached, pull_and_record, source_counts
 from src.ui.theme import (
     assistant_rule,
     brand,
@@ -91,12 +92,9 @@ def _init_state() -> None:
 
 def _refresh(region: str) -> None:
     with st.spinner(f"Pulling {region} listings…"):
-        jobs, warnings = refresh_region(region)
+        jobs, stats, warnings = pull_and_record(region)
     st.session_state[region] = jobs
     st.session_state[f"_fetched_{region}"] = time.time()
-    stats = compute_stats(jobs) if jobs else []
-    if jobs:
-        record_snapshot(region, time.time(), len(jobs), stats)
     st.session_state[f"_stats_{region}"] = stats
     st.session_state[f"_warn_{region}"] = warnings
 
@@ -143,6 +141,13 @@ def _render_sidebar() -> None:
 
         if not settings.api.jsearch_api_key:
             warn_line("Add JSEARCH_API_KEY to .env to unlock Hong Kong.")
+
+        matcher = get_matcher()
+        stored = normalize_skills(load_own_skills(), matcher)
+        options = sorted(matcher.patterns)
+        selected = st.multiselect("My stack", options, default=[n for n in stored if n in options])
+        if selected != stored:
+            save_own_skills(selected)
 
         jobs = st.session_state.get(region)
         side_label("Feed")
@@ -200,12 +205,21 @@ def _summary_strip(region: str, jobs: list | None, stats: list) -> None:
 
 def _chart_grid(jobs: list | None, stats: list) -> None:
     shared_height = 30 * min(len(stats), 14) + 24 if stats else 300
+    own = set(normalize_skills(load_own_skills(), get_matcher()))
     left, right = st.columns([2.0, 1.0], gap="medium")
     with left:
         section_title("Skill demand", "TOP 14 BY MENTIONS")
         if stats:
+            if own:
+                missing = [s for s in stats if s.name not in own][:5]
+                if missing:
+                    line = " · ".join(f"{s.name} {s.pct}%" for s in missing)
+                    st.markdown(
+                        f"<div class='gap-line'>Missing from your stack (top demand): {line}</div>",
+                        unsafe_allow_html=True,
+                    )
             with st.container(border=True):
-                demand_chart(stats, height=shared_height)
+                demand_chart(stats, height=shared_height, owned=sorted(own))
         else:
             st.markdown(
                 "<div class='card' style='color:#A1A1AA'>No data yet — hit <b>⟳ Refresh</b> to pull the first batch.</div>",

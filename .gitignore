@@ -12,6 +12,7 @@ plan/
 
 # App cache
 res/data/*.json
+!res/data/history_*.json
 
 # Tooling
 .pytest_cache/

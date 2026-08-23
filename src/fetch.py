@@ -4,12 +4,24 @@ import time
 from collections import Counter
 
 from config import JSEARCH_REGIONS, REMOTE_SOURCES_REGIONS, settings
+from src.analysis.history import record_snapshot
+from src.analysis.skills import SkillStat, compute_stats
 from src.models import Job, job_from_dict, job_to_dict
 from src.sources import jobicy, jsearch, remoteok, remotive
 
 _DESC_PREVIEW_CHARS = 600
 _KEYWORDS_MTIME: float | None = None
 _RELEVANCE_PATTERN: re.Pattern[str] | None = None
+
+
+def pull_and_record(
+    region: str, *, data_dir=None
+) -> tuple[list[Job], list[SkillStat], list[str]]:
+    jobs, warnings = refresh_region(region)
+    stats = compute_stats(jobs) if jobs else []
+    if jobs:
+        record_snapshot(region, time.time(), len(jobs), stats, data_dir=data_dir)
+    return jobs, stats, warnings
 
 
 def refresh_region(region: str) -> tuple[list[Job], list[str]]:
