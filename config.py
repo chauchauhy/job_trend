@@ -58,6 +58,7 @@ class FetchConfig:
     jobicy_count: int = 50
     request_delay_s: float = 0.4
     cache_ttl_hours: int = 6
+    refresh_unlock_days: int = 7
 
 
 REGIONS: dict[str, str] = {

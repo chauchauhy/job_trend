@@ -42,6 +42,8 @@ def run() -> None:
     )
     _init_state()
     region = st.session_state.region
+    if st.session_state.get(region) is None:
+        _refresh(region)
     inject_theme(region)
     jobs = st.session_state.get(region)
     stats = st.session_state.get(f"_stats_{region}") or []
@@ -101,7 +103,16 @@ def _topbar(region: str) -> None:
         st.segmented_control("Market", list(REGIONS), key="region", label_visibility="collapsed")
     with right:
         button_col, chip_col = right.columns([1.1, 1.0])
-        if button_col.button("⟳ Refresh", type="primary", width="stretch"):
+        fetched_at = st.session_state.get(f"_fetched_{region}")
+        unlocked = fetched_at is None or (time.time() - fetched_at) >= settings.fetch.refresh_unlock_days * 86400
+        help_text = None if unlocked else f"Unlocks when this pull is older than {settings.fetch.refresh_unlock_days} days"
+        if button_col.button(
+            "⟳ Refresh",
+            type="primary",
+            width="stretch",
+            disabled=not unlocked,
+            help=help_text,
+        ):
             _refresh(st.session_state.region)
         fetched_at = st.session_state.get(f"_fetched_{region}")
         jobs = st.session_state.get(region)
