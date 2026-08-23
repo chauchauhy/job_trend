@@ -11,7 +11,8 @@ import pandas as pd
 import streamlit as st
 
 from config import REGIONS, settings
-from src.analysis.skills import compute_stats, top_skills
+from src.analysis.history import load_history, record_snapshot
+from src.analysis.skills import compute_stats, get_matcher, top_skills
 from src.chat.handler import respond
 from src.fetch import cache_is_fresh, load_cached, refresh_region, source_counts
 from src.ui.theme import (
@@ -25,6 +26,7 @@ from src.ui.theme import (
     side_label,
     status_chip,
     summary_strip,
+    trend_chart,
     user_line,
     warn_line,
 )
@@ -52,6 +54,7 @@ def run() -> None:
     _render_sidebar()
     _summary_strip(region, jobs, stats)
     _chart_grid(jobs, stats)
+    _trend_section(region, stats)
     _assistant(region)
 
 
@@ -91,7 +94,10 @@ def _refresh(region: str) -> None:
         jobs, warnings = refresh_region(region)
     st.session_state[region] = jobs
     st.session_state[f"_fetched_{region}"] = time.time()
-    st.session_state[f"_stats_{region}"] = compute_stats(jobs) if jobs else []
+    stats = compute_stats(jobs) if jobs else []
+    if jobs:
+        record_snapshot(region, time.time(), len(jobs), stats)
+    st.session_state[f"_stats_{region}"] = stats
     st.session_state[f"_warn_{region}"] = warnings
 
 
@@ -224,6 +230,33 @@ def _chart_grid(jobs: list | None, stats: list) -> None:
                 }
             )
             st.dataframe(frame, width="stretch", hide_index=True)
+
+
+def _trend_section(region: str, stats: list) -> None:
+    section_title("Skill trends", "ACROSS PULLS")
+    snapshots = load_history(region)
+    ranked_now = [s.name for s in stats]
+    if not ranked_now and snapshots:
+        latest = snapshots[-1].get("skills", {})
+        ranked_now = sorted(latest, key=latest.get, reverse=True)
+    known = {name for snap in snapshots for name in snap.get("skills", {})}
+    options = ranked_now + sorted(known - set(ranked_now))
+    if len(snapshots) < 2 or not options:
+        st.markdown(
+            "<div class='card' style='color:#A1A1AA'>History builds with each pull — hit <b>⟳ Refresh</b> over time to grow the trend.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    selected = st.multiselect(
+        "Skills",
+        options,
+        default=options[:5],
+        label_visibility="collapsed",
+    )
+    if not selected:
+        return
+    with st.container(border=True):
+        trend_chart(snapshots, selected, get_matcher().category_of)
 
 
 def _assistant(region: str) -> None:

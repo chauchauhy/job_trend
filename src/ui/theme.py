@@ -177,6 +177,93 @@ def category_donut(stats: list, height: int | None = None) -> None:
     st.altair_chart(chart, width="stretch")
 
 
+def trend_chart(snapshots: list[dict], selected: list[str], category_of: dict[str, str]) -> None:
+    import altair as alt
+    import pandas as pd
+
+    rows = []
+    for snap in snapshots:
+        total = snap.get("total") or 0
+        skills = snap.get("skills", {})
+        ts = pd.to_datetime(snap["ts"], unit="s")
+        for name in selected:
+            count = skills.get(name, 0)
+            rows.append(
+                {
+                    "ts": ts,
+                    "skill": name,
+                    "pct": round(count / total * 100, 1) if total else 0.0,
+                }
+            )
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        st.caption("No data for the selected skills yet.")
+        return
+    domain: list[str] = []
+    palette: list[str] = []
+    fallback = ("#F97316", "#22D3EE", "#4ADE80", "#E879F9", "#FACC15")
+    used: set[str] = set()
+    next_fallback = 0
+    for name in selected:
+        color = CATEGORY_COLORS.get(category_of.get(name, ""), "")
+        if not color or color in used:
+            while next_fallback < len(fallback) and fallback[next_fallback] in used:
+                next_fallback += 1
+            color = fallback[next_fallback] if next_fallback < len(fallback) else MUTED
+            next_fallback += 1
+        used.add(color)
+        domain.append(name)
+        palette.append(color)
+    chart = (
+        alt.Chart(frame)
+        .mark_line(point=alt.OverlayMarkDef(size=40), strokeWidth=2)
+        .encode(
+            x=alt.X(
+                "ts:T",
+                title=None,
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=BORDER,
+                    gridDash=[2, 4],
+                    gridOpacity=0.7,
+                    labelColor=MUTED,
+                    tickColor="transparent",
+                    domainColor="transparent",
+                    labelFontSize=11,
+                ),
+            ),
+            y=alt.Y(
+                "pct:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=BORDER,
+                    gridDash=[2, 4],
+                    gridOpacity=0.7,
+                    labelColor=MUTED,
+                    tickColor="transparent",
+                    domainColor="transparent",
+                    labelFontSize=11,
+                ),
+            ),
+            color=alt.Color(
+                "skill:N",
+                scale=alt.Scale(domain=domain, range=palette),
+                legend=alt.Legend(orient="bottom", labelColor=MUTED, labelFontSize=11.5, columns=4, padding=8),
+            ),
+            tooltip=[
+                alt.Tooltip("skill:N", title="skill"),
+                alt.Tooltip("yearmonthdate(ts):T", title="pulled"),
+                alt.Tooltip("pct:Q", title="% of listings", format=".1f"),
+            ],
+        )
+        .configure(background="transparent")
+        .configure_view(stroke=None)
+        .properties(height=280)
+    )
+    st.altair_chart(chart, width="stretch")
+
+
 def side_label(label: str) -> None:
     st.markdown(f"<div class='side-label'>{_esc(label)}</div>", unsafe_allow_html=True)
 
