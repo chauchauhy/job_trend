@@ -1,6 +1,34 @@
-from src.sources.base import usa_region
+from src.sources import base
+from src.sources.base import get_json, usa_region
 from src.sources.jsearch import _to_job as jsearch_to_job
 from src.sources.remoteok import _to_job as remoteok_to_job
+
+
+def test_get_json_maps_connection_error(monkeypatch):
+    def raise_conn(*args, **kwargs):
+        raise base.requests.ConnectionError("boom")
+
+    monkeypatch.setattr(base.requests, "request", raise_conn)
+    data, error = get_json("https://example.com/api")
+    assert data is None and error == "connection error"
+
+
+def test_get_json_maps_timeout(monkeypatch):
+    def raise_timeout(*args, **kwargs):
+        raise base.requests.Timeout("slow")
+
+    monkeypatch.setattr(base.requests, "request", raise_timeout)
+    data, error = get_json("https://example.com/api")
+    assert data is None and error == "timeout"
+
+
+def test_get_json_maps_unexpected_request_exception(monkeypatch):
+    def raise_other(*args, **kwargs):
+        raise base.requests.RequestException("weird")
+
+    monkeypatch.setattr(base.requests, "request", raise_other)
+    data, error = get_json("https://example.com/api")
+    assert data is None and error == "RequestException"
 
 
 def test_usa_region_detection():

@@ -59,7 +59,7 @@ def _request(
     except requests.HTTPError as exc:
         status = exc.response.status_code if exc.response is not None else "?"
         return None, f"HTTP {status}"
-    except requests.ConnectionException:
+    except requests.ConnectionError:
         return None, "connection error"
     except requests.Timeout:
         return None, "timeout"
