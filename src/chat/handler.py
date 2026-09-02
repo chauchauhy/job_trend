@@ -3,6 +3,7 @@ import re
 import pandas as pd
 
 from config import REGION_ALIASES, REGIONS, settings
+from src.analysis.salary import money, range_text, region_salary, salary_breakdown, skill_salary
 from src.analysis.skills import SkillStat, compute_stats, get_matcher, lookup_skill, top_skills
 
 _HELP_TEXT = (
@@ -12,6 +13,10 @@ _HELP_TEXT = (
     "- a skill name like `python`, `react`, `kubernetes` — count, % and sample jobs\n"
     "- `how many jobs` — volume by source\n"
     "- `compare hk vs usa` — side-by-side counts **and %**\n"
+    "- `salary python` — median (annualized) for jobs requiring a skill\n"
+    "- `highest paying` — top titles by median salary\n"
+    "- `salary by title` / `salary coverage` — breakdown and disclosure rate\n"
+    "- `compare salary hk vs usa` — region salary side-by-side\n"
     "- put `hk`, `usa` or `global` in any message to answer for that region"
 )
 
@@ -35,6 +40,9 @@ def respond(message: str, default_region: str, store) -> tuple[str, pd.DataFrame
     lowered = message.lower()
     if re.search(r"\b(help|commands|what can you do)\b", lowered):
         return _HELP_TEXT, None
+    _salary = _salary_intent(message, lowered, store, region)
+    if _salary is not None:
+        return _salary
     if "compare" in lowered or " vs " in lowered:
         return _compare(store, message)
     if re.search(r"(how many|job count|count of jobs|jobs loaded|volume)", lowered):
@@ -187,3 +195,115 @@ def _compare(store, message: str) -> tuple[str, pd.DataFrame | None]:
     df = pd.DataFrame(frame)
     label = " vs ".join(targets)
     return f"**{label}** — job-listing mentions (count and % of regional pool):", df
+
+
+def _salary_intent(message: str, lowered: str, store, region: str) -> tuple[str, pd.DataFrame | None] | None:
+    has_salary_word = bool(re.search(r"\bsalary\b|compensation|highest paying|top pay|best paying|\bpay\b|coverage", lowered))
+    if not has_salary_word:
+        return None
+
+    if "compare" in lowered or re.search(r"\bsalary\b.*\bvs\b|\bvs\b.*\bsalary\b", lowered):
+        return _compare_salary(store, message, region)
+    if re.search(r"coverage", lowered) or re.search(r"how many.*salary|salary.*(how many|disclosed)", lowered):
+        return _salary_coverage(store, region)
+    if re.search(r"highest paying|top pay|best paying|highest salary|best salary", lowered):
+        return _highest_paying(store, region)
+    if re.search(r"salary.*(by title|breakdown)|breakdown.*salary", lowered):
+        return _salary_by_title(store, region)
+
+    skill_name = get_matcher().resolve_query(message)
+    if skill_name:
+        return _salary_skill(store, region, skill_name)
+    return (
+        "I found a salary question — try `salary <skill>`, `highest paying`, "
+        f"`salary by title`, or `salary coverage` (answering for **{region}**).",
+        None,
+    )
+
+
+def _compare_salary(store, message: str, default: str) -> tuple[str, pd.DataFrame | None]:
+    requested = resolve_regions(message)
+    targets = [r for r in requested if store.get(r)] or [r for r in REGIONS if store.get(r)]
+    missing = [r for r in requested if not store.get(r)]
+    if missing:
+        return f"No cached data for **{'**, **'.join(missing)}** — refresh those regions first.", None
+    if not requested:
+        targets = targets[:2]
+    rows = []
+    for region in targets:
+        summary = region_salary(store[region])
+        rows.append(
+            {
+                "region": region,
+                "jobs": len(store[region]),
+                "with salary": summary.with_salary,
+                "median": summary.median,
+                "currency": summary.currency,
+                "period": summary.period,
+            }
+        )
+    if not any(r["with salary"] for r in rows):
+        return "None of the requested regions have salary data yet.", None
+    df = pd.DataFrame(rows)
+    label = " vs ".join(targets)
+    return f"**{label}** — annualized median (dominant currency + period):", df
+
+
+def _salary_coverage(store, region: str) -> tuple[str, pd.DataFrame | None]:
+    jobs = store[region]
+    total = len(jobs)
+    paid = sum(r.with_salary for r in salary_breakdown(jobs))
+    return f"**{paid}/{total}** {region} listings disclose a structured or parseable salary.", None
+
+
+def _highest_paying(store, region: str) -> tuple[str, pd.DataFrame | None]:
+    rows = [r for r in salary_breakdown(store[region]) if r.median_annual is not None]
+    rows.sort(key=lambda r: -r.median_annual)
+    df = pd.DataFrame(
+        {
+            "title": [r.title for r in rows],
+            "range": [range_text(r) for r in rows],
+            "median": [money(r.median_annual, r.currency) for r in rows],
+            "currency": [r.currency for r in rows],
+        }
+    )
+    if df.empty:
+        return f"No salary data for **{region}** yet.", df
+    return f"**Top-paying titles in {region}** (annualized median):", df
+
+
+def _salary_by_title(store, region: str) -> tuple[str, pd.DataFrame | None]:
+    rows = salary_breakdown(store[region])
+    df = pd.DataFrame(
+        {
+            "title": [r.title for r in rows],
+            "jobs": [r.jobs for r in rows],
+            "with salary": [r.with_salary for r in rows],
+            "period": [r.period or "—" for r in rows],
+            "currency": [r.currency or "—" for r in rows],
+            "range": [range_text(r) for r in rows],
+            "median (yr)": [money(r.median_annual, r.currency) for r in rows],
+        }
+    )
+    return f"**Salary by title in {region}** (annualized median):", df
+
+
+def _salary_skill(store, region: str, skill_name: str) -> tuple[str, pd.DataFrame | None]:
+    rows = [r for r in skill_salary(store[region], get_matcher()) if r["skill"] == skill_name]
+    if not rows or rows[0]["median"] is None:
+        return f"**{skill_name}** jobs in {region} don't disclose a parseable salary yet.", None
+    row = rows[0]
+    df = pd.DataFrame(
+        [
+            {
+                "skill": row["skill"],
+                "jobs": row["jobs"],
+                "with salary": row["with_salary"],
+                "median (yr)": money(row["median"], None),
+            }
+        ]
+    )
+    return (
+        f"**{skill_name}** · median across {row['with_salary']} disclosed of {row['jobs']} jobs:",
+        df,
+    )

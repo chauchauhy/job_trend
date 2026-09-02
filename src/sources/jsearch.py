@@ -2,7 +2,26 @@ import time
 
 from config import JSEARCH_COUNTRY, JSEARCH_QUERY_SUFFIX, settings
 from src.models import Job
-from src.sources.base import get_json, strip_html
+from src.sources.base import get_json, salary_int, strip_html
+
+JSEARCH_DEFAULT_CURRENCY = {
+    "USA": "USD",
+    "Hong Kong": "HKD",
+}
+
+JSEARCH_SALARY_PERIODS = {
+    "YEARLY": "YEARLY",
+    "YEAR": "YEARLY",
+    "ANNUAL": "YEARLY",
+    "MONTHLY": "MONTHLY",
+    "MONTH": "MONTHLY",
+    "HOURLY": "HOURLY",
+    "HOUR": "HOURLY",
+    "PER_HOUR": "HOURLY",
+    "DAILY": "DAILY",
+    "DAY": "DAILY",
+    "WEEKLY": "WEEKLY",
+}
 
 
 def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
@@ -67,6 +86,10 @@ def _to_job(item: dict, region: str) -> Job:
         tags = tuple(t.strip() for t in raw_skills.split(",") if t.strip())
     else:
         tags = tuple(str(t).strip() for t in (raw_skills or []) if t)
+    currency = item.get("job_salary_currency") or None
+    if currency is None and (item.get("job_min_salary") is not None or item.get("job_max_salary") is not None):
+        currency = JSEARCH_DEFAULT_CURRENCY.get(region)
+    period = JSEARCH_SALARY_PERIODS.get(item.get("job_salary_period")) if item.get("job_salary_period") else None
     return Job(
         id=f"jsearch:{item.get('job_id', '')}",
         source="jsearch",
@@ -78,4 +101,8 @@ def _to_job(item: dict, region: str) -> Job:
         url=item.get("job_apply_link") or "",
         published_at=item.get("job_posted_at_datetime_utc"),
         tags=tags[:15],
+        salary_min=salary_int(item.get("job_min_salary")),
+        salary_max=salary_int(item.get("job_max_salary")),
+        salary_currency=currency,
+        salary_period=period,
     )

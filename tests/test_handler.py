@@ -72,3 +72,58 @@ def test_empty_region_prompts_refresh(store):
 def test_fallback_suggests_help(store):
     text, _ = respond("hello there friend", "Hong Kong", store)
     assert "help" in text.lower()
+
+
+def _salary_store():
+    jobs = [
+        make_job(
+            job_id="h1",
+            title="Python Developer",
+            description="Build APIs. Salary range $120,000 - $140,000 per year.",
+        ),
+        make_job(
+            job_id="h2",
+            title="Senior Backend Engineer",
+            description="Go and Python. Compensation $150,000 - $170,000 per year.",
+        ),
+        make_job(job_id="h3", title="Java Engineer", description="No pay disclosed here."),
+    ]
+    return {"Hong Kong": jobs}
+
+
+def test_salary_by_skill_intent():
+    store = _salary_store()
+    text, df = respond("salary python", "Hong Kong", store)
+    assert df is not None
+    assert "Python" in text
+
+
+def test_salary_highest_paying_intent():
+    store = _salary_store()
+    text, df = respond("highest paying titles", "Hong Kong", store)
+    assert df is not None
+    assert df.iloc[0]["title"] == "Backend Engineer"
+
+
+def test_salary_by_title_intent():
+    store = _salary_store()
+    text, df = respond("salary by title", "Hong Kong", store)
+    assert df is not None
+    assert set(df.columns) >= {"title", "with salary", "median (yr)"}
+
+
+def test_salary_coverage_intent():
+    store = _salary_store()
+    text, df = respond("salary coverage", "Hong Kong", store)
+    assert df is None
+    assert "2/3" in text
+
+
+def test_compare_salary_intent():
+    usa = [
+        make_job(job_id="u1", title="React Dev", description="Salary range $90,000 - $110,000 per year."),
+    ]
+    store = {"Hong Kong": _salary_store()["Hong Kong"], "USA": usa}
+    text, df = respond("compare salary hk vs usa", "Global", store)
+    assert df is not None
+    assert set(df.columns) >= {"region", "with salary", "median"}

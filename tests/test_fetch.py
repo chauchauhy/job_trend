@@ -55,10 +55,40 @@ def test_disk_cache_round_trip(monkeypatch, tmp_path):
     fetch_mod.save_cache("USA", jobs, fetched_at=1234.5)
     loaded = fetch_mod.load_cached("USA")
     assert loaded is not None
-    restored, fetched_at = loaded
+    restored, fetched_at, schema_version = loaded
     assert fetched_at == 1234.5
+    assert schema_version == fetch_mod.CACHE_SCHEMA_VERSION
     assert restored == jobs
     assert restored[0].regions == frozenset({"USA", "Global"})
+
+
+def test_legacy_cache_without_schema_version_is_stale(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setattr(fetch_mod, "cache_path", lambda region: tmp_path / "usa.json")
+    path = tmp_path / "usa.json"
+    path.write_text(json.dumps({"fetched_at": 1.0, "jobs": []}), encoding="utf-8")
+    loaded = fetch_mod.load_cached("USA")
+    assert loaded is not None
+    _jobs, _fetched_at, schema_version = loaded
+    assert schema_version == 1
+    assert not fetch_mod.cache_schema_current(schema_version)
+
+
+def test_current_schema_version_is_fresh():
+    assert fetch_mod.cache_schema_current(fetch_mod.CACHE_SCHEMA_VERSION)
+
+
+def test_pull_and_record_stores_salary_payload(monkeypatch, tmp_path):
+    from src.analysis import history
+
+    job = make_job(job_id="p1", description="Salary $90,000 - $110,000 per year")
+    monkeypatch.setattr(fetch_mod, "refresh_region", lambda region: ([job], []))
+    jobs, _stats, _warns = fetch_mod.pull_and_record("USA", data_dir=tmp_path)
+    assert len(jobs) == 1
+    snaps = history.load_history("USA", data_dir=tmp_path)
+    assert snaps[-1]["salary"]["median_annual"] == 100_000
+    assert snaps[-1]["salary"]["with_salary"] == 1
 
 
 def test_serialization_preserves_frozenset_and_tuples():

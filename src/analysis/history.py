@@ -34,15 +34,17 @@ def record_snapshot(
     stats: list[SkillStat],
     *,
     data_dir: Path | None = None,
+    salary: dict | None = None,
 ) -> None:
     snapshots = load_history(region, data_dir=data_dir)
-    snapshots.append(
-        {
-            "ts": float(ts),
-            "total": int(total),
-            "skills": {stat.name: int(stat.count) for stat in stats},
-        }
-    )
+    snapshot = {
+        "ts": float(ts),
+        "total": int(total),
+        "skills": {stat.name: int(stat.count) for stat in stats},
+    }
+    if salary is not None:
+        snapshot["salary"] = salary
+    snapshots.append(snapshot)
     path = _path(region, data_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"snapshots": snapshots[-MAX_SNAPSHOTS:]}

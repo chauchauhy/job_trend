@@ -267,6 +267,105 @@ def trend_chart(snapshots: list[dict], selected: list[str], category_of: dict[st
     st.altair_chart(chart, width="stretch")
 
 
+def salary_median_chart(rows: list[dict]) -> None:
+    import altair as alt
+    import pandas as pd
+
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        return
+    order = frame.sort_values("median")["label"].tolist()
+    chart = (
+        alt.Chart(frame)
+        .mark_bar(cornerRadius=0, cornerRadiusEnd=3, height=14)
+        .encode(
+            x=alt.X(
+                "median:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=BORDER,
+                    gridDash=[2, 4],
+                    gridOpacity=0.7,
+                    labelColor=MUTED,
+                    tickColor="transparent",
+                    domainColor="transparent",
+                    labelFontSize=11,
+                    format="$,.0f",
+                ),
+            ),
+            y=alt.Y(
+                "label:N",
+                sort=order,
+                title=None,
+                axis=alt.Axis(labelColor=INK, labelFontSize=13, ticks=False, domain=False, labelFontWeight=600),
+            ),
+            color=alt.value("#34D399"),
+            tooltip=[
+                alt.Tooltip("label:N", title="title"),
+                alt.Tooltip("median:Q", title="median/yr", format="$,.0f"),
+            ],
+        )
+        .configure(background="transparent")
+        .configure_view(stroke=None)
+        .properties(height=24 * len(frame) + 24)
+    )
+    st.altair_chart(chart, width="stretch")
+
+
+def salary_trend_chart(points: list[dict]) -> None:
+    import altair as alt
+    import pandas as pd
+
+    frame = pd.DataFrame(points)
+    if frame.empty:
+        return
+    chart = (
+        alt.Chart(frame)
+        .mark_line(point=alt.OverlayMarkDef(size=40), strokeWidth=2)
+        .encode(
+            x=alt.X(
+                "ts:T",
+                title=None,
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=BORDER,
+                    gridDash=[2, 4],
+                    gridOpacity=0.7,
+                    labelColor=MUTED,
+                    tickColor="transparent",
+                    domainColor="transparent",
+                    labelFontSize=11,
+                ),
+            ),
+            y=alt.Y(
+                "median:Q",
+                title=None,
+                axis=alt.Axis(
+                    grid=True,
+                    gridColor=BORDER,
+                    gridDash=[2, 4],
+                    gridOpacity=0.7,
+                    labelColor=MUTED,
+                    tickColor="transparent",
+                    domainColor="transparent",
+                    labelFontSize=11,
+                    format="$,.0f",
+                ),
+            ),
+            color=alt.value("#60A5FA"),
+            tooltip=[
+                alt.Tooltip("yearmonthdate(ts):T", title="pulled"),
+                alt.Tooltip("median:Q", title="median/yr", format="$,.0f"),
+            ],
+        )
+        .configure(background="transparent")
+        .configure_view(stroke=None)
+        .properties(height=240)
+    )
+    st.altair_chart(chart, width="stretch")
+
+
 def side_label(label: str) -> None:
     st.markdown(f"<div class='side-label'>{_esc(label)}</div>", unsafe_allow_html=True)
 

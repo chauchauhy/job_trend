@@ -43,3 +43,22 @@ def test_regions_use_separate_files(tmp_path):
     assert (tmp_path / "history_hong_kong.json").exists()
     assert len(history.load_history("USA", data_dir=tmp_path)) == 1
     assert len(history.load_history("Hong Kong", data_dir=tmp_path)) == 1
+
+
+def test_snapshot_with_salary_payload(tmp_path):
+    history.record_snapshot(
+        "USA",
+        1000.0,
+        10,
+        [_stat("Python", 5)],
+        data_dir=tmp_path,
+        salary={"median_annual": 130_000, "with_salary": 4, "total": 10, "currency": "USD", "period": "YEARLY"},
+    )
+    snaps = history.load_history("USA", data_dir=tmp_path)
+    assert snaps[-1]["salary"]["median_annual"] == 130_000
+
+
+def test_old_snapshots_without_salary_load(tmp_path):
+    history.record_snapshot("USA", 1000.0, 10, [], data_dir=tmp_path)
+    snaps = history.load_history("USA", data_dir=tmp_path)
+    assert "salary" not in snaps[-1]

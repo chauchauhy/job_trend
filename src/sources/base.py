@@ -25,6 +25,22 @@ def usa_region(text: str | None) -> str:
     return "Global"
 
 
+def salary_int(value) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    text = str(value).strip().replace(",", "")
+    if not text:
+        return None
+    try:
+        return int(float(text))
+    except ValueError:
+        return None
+
+
 def http_headers() -> dict[str, str]:
     return {"User-Agent": settings.api.user_agent, "Accept": "application/json"}
 

@@ -91,6 +91,20 @@ REGION_ALIASES: dict[str, str] = {
     "world": "Global",
 }
 
+FX_RATES: dict[str, float] = {
+    "HKD": 7.80,
+    "EUR": 0.92,
+    "GBP": 0.79,
+    "CAD": 1.36,
+    "AUD": 1.52,
+}
+
+REGION_DEFAULT_CURRENCY: dict[str, str] = {
+    "Hong Kong": "HKD",
+    "USA": "USD",
+    "Global": "USD",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:

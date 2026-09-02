@@ -3,13 +3,16 @@ import re
 import time
 from collections import Counter
 
-from config import JSEARCH_REGIONS, REMOTE_SOURCES_REGIONS, settings
+from config import JSEARCH_REGIONS, REGION_DEFAULT_CURRENCY, REMOTE_SOURCES_REGIONS, settings
 from src.analysis.history import record_snapshot
+from src.analysis.salary import region_salary
 from src.analysis.skills import SkillStat, compute_stats
 from src.models import Job, job_from_dict, job_to_dict
 from src.sources import jobicy, jsearch, remoteok, remotive
 
 _DESC_PREVIEW_CHARS = 600
+_LEGACY_SCHEMA_VERSION = 1
+CACHE_SCHEMA_VERSION = 2
 _KEYWORDS_MTIME: float | None = None
 _RELEVANCE_PATTERN: re.Pattern[str] | None = None
 
@@ -20,7 +23,17 @@ def pull_and_record(
     jobs, warnings = refresh_region(region)
     stats = compute_stats(jobs) if jobs else []
     if jobs:
-        record_snapshot(region, time.time(), len(jobs), stats, data_dir=data_dir)
+        salary_payload = None
+        summary = region_salary(jobs, REGION_DEFAULT_CURRENCY.get(region))
+        if summary.with_salary and summary.median is not None:
+            salary_payload = {
+                "median_annual": summary.median,
+                "with_salary": summary.with_salary,
+                "total": len(jobs),
+                "currency": summary.currency,
+                "period": summary.period,
+            }
+        record_snapshot(region, time.time(), len(jobs), stats, data_dir=data_dir, salary=salary_payload)
     return jobs, stats, warnings
 
 
@@ -74,21 +87,30 @@ def refresh_region(region: str) -> tuple[list[Job], list[str]]:
     return selected, warnings
 
 
-def load_cached(region: str) -> tuple[list[Job], float] | None:
+def load_cached(region: str) -> tuple[list[Job], float, int] | None:
     path = cache_path(region)
     if not path.exists():
         return None
     try:
         raw = json.loads(path.read_text(encoding=settings.data.encoding))
         jobs = [job_from_dict(d) for d in raw["jobs"]]
-        return jobs, float(raw["fetched_at"])
+        schema_version = int(raw.get("schema_version", _LEGACY_SCHEMA_VERSION))
+        return jobs, float(raw["fetched_at"]), schema_version
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
 
+def cache_schema_current(schema_version: int) -> bool:
+    return schema_version >= CACHE_SCHEMA_VERSION
+
+
 def save_cache(region: str, jobs: list[Job], fetched_at: float) -> None:
     settings.paths.data.mkdir(parents=True, exist_ok=True)
-    payload = {"fetched_at": fetched_at, "jobs": [job_to_dict(j) for j in jobs]}
+    payload = {
+        "schema_version": CACHE_SCHEMA_VERSION,
+        "fetched_at": fetched_at,
+        "jobs": [job_to_dict(j) for j in jobs],
+    }
     cache_path(region).write_text(
         json.dumps(payload, ensure_ascii=False), encoding=settings.data.encoding
     )

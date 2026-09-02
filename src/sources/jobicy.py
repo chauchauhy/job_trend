@@ -1,6 +1,6 @@
 from config import settings
 from src.models import Job
-from src.sources.base import get_json, strip_html, usa_region
+from src.sources.base import get_json, salary_int, strip_html, usa_region
 
 
 def fetch() -> tuple[list[Job], str | None]:
@@ -22,6 +22,8 @@ def _to_job(item: dict) -> Job:
         if part
     )
     tags = tuple(t.strip() for t in (item.get("jobIndustry") or []) if isinstance(t, str) and t.strip())
+    salary_min = salary_int(item.get("annualSalaryMin"))
+    salary_max = salary_int(item.get("annualSalaryMax"))
     return Job(
         id=f"jobicy:{item.get('id')}",
         source="jobicy",
@@ -33,4 +35,8 @@ def _to_job(item: dict) -> Job:
         url=item.get("url") or "",
         published_at=item.get("pubDate"),
         tags=tags,
+        salary_min=salary_min,
+        salary_max=salary_max,
+        salary_currency=item.get("salaryCurrency") or None,
+        salary_period="YEARLY" if (salary_min is not None or salary_max is not None) else None,
     )

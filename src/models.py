@@ -13,6 +13,10 @@ class Job:
     url: str
     published_at: str | None
     tags: tuple[str, ...]
+    salary_min: int | None = None
+    salary_max: int | None = None
+    salary_currency: str | None = None
+    salary_period: str | None = None
 
 
 def job_to_dict(job: Job) -> dict:
@@ -33,4 +37,8 @@ def job_from_dict(data: dict) -> Job:
         url=data.get("url", ""),
         published_at=data.get("published_at"),
         tags=tuple(data.get("tags", ())),
+        salary_min=data.get("salary_min"),
+        salary_max=data.get("salary_max"),
+        salary_currency=data.get("salary_currency"),
+        salary_period=data.get("salary_period"),
     )

@@ -10,12 +10,28 @@ import time
 import pandas as pd
 import streamlit as st
 
-from config import REGIONS, settings
+from config import REGION_DEFAULT_CURRENCY, REGIONS, settings
 from src.analysis.gap import load_own_skills, normalize_skills, save_own_skills
 from src.analysis.history import load_history
+from src.analysis.salary import (
+    money,
+    range_text,
+    region_salary,
+    salary_breakdown,
+    salary_to_usd,
+    seniority_breakdown,
+    skill_salary,
+    source_salary,
+)
 from src.analysis.skills import compute_stats, get_matcher, top_skills
 from src.chat.handler import respond
-from src.fetch import cache_is_fresh, load_cached, pull_and_record, source_counts
+from src.fetch import (
+    cache_is_fresh,
+    cache_schema_current,
+    load_cached,
+    pull_and_record,
+    source_counts,
+)
 from src.ui.theme import (
     assistant_rule,
     brand,
@@ -23,6 +39,8 @@ from src.ui.theme import (
     demand_chart,
     feed_row,
     inject_theme,
+    salary_median_chart,
+    salary_trend_chart,
     section_title,
     side_label,
     status_chip,
@@ -45,8 +63,6 @@ def run() -> None:
     )
     _init_state()
     region = st.session_state.region
-    if st.session_state.get(region) is None:
-        _refresh(region)
     inject_theme(region)
     jobs = st.session_state.get(region)
     stats = st.session_state.get(f"_stats_{region}") or []
@@ -55,6 +71,7 @@ def run() -> None:
     _render_sidebar()
     _summary_strip(region, jobs, stats)
     _chart_grid(jobs, stats)
+    _salary_section(jobs)
     _trend_section(region, stats)
     _assistant(region)
 
@@ -82,11 +99,15 @@ def _init_state() -> None:
     if not st.session_state.get("_hydrated"):
         for region in REGIONS:
             cached = load_cached(region)
-            if cached is not None:
-                pulled, fetched_at = cached
-                st.session_state[region] = pulled
-                st.session_state[f"_fetched_{region}"] = fetched_at
-                st.session_state[f"_stats_{region}"] = compute_stats(pulled) if pulled else []
+            if cached is None:
+                continue
+            jobs, fetched_at, schema_version = cached
+            if not cache_schema_current(schema_version):
+                _refresh(region)
+                continue
+            st.session_state[region] = jobs
+            st.session_state[f"_fetched_{region}"] = fetched_at
+            st.session_state[f"_stats_{region}"] = compute_stats(jobs) if jobs else []
         st.session_state._hydrated = True
 
 
@@ -244,6 +265,133 @@ def _chart_grid(jobs: list | None, stats: list) -> None:
                 }
             )
             st.dataframe(frame, width="stretch", hide_index=True)
+
+
+def _salary_section(jobs: list | None) -> None:
+    section_title("Salary analysis", "DISCLOSED · DESCRIPTION-FALLBACK · ANNUALIZED")
+    if not jobs:
+        st.markdown(
+            "<div class='card' style='color:#A1A1AA'>No listings yet — hit <b>⟳ Refresh</b> to pull job data.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+    region = st.session_state.region
+    default_currency = REGION_DEFAULT_CURRENCY.get(region)
+    summary = region_salary(jobs, default_currency)
+    if summary.with_salary == 0:
+        st.markdown(
+            f"<div class='card' style='color:#A1A1AA'>No salary could be extracted from this pull "
+            f"(0/{len(jobs)}). Sources: JSearch · Jobicy · Remotive structured fields, plus "
+            f"salary patterns in listing descriptions.</div>",
+            unsafe_allow_html=True,
+        )
+        return
+
+    cross = []
+    for cross_region in REGIONS:
+        cached = load_cached(cross_region)
+        if cached is None:
+            continue
+        other_jobs, *_ = cached
+        other_summary = region_salary(other_jobs, REGION_DEFAULT_CURRENCY.get(cross_region))
+        if other_summary.median is None:
+            continue
+        cross.append({"label": cross_region, "median": salary_to_usd(other_summary.median, other_summary.currency)})
+    if cross:
+        with st.container(border=True):
+            salary_median_chart(cross)
+        st.caption("Median (annualized) converted to USD with static FX_RATES — approximate.")
+
+    summary_line = (
+        f"{money(summary.salary_min, summary.currency)} – {money(summary.salary_max, summary.currency)}"
+        if summary.salary_min != summary.salary_max
+        else money(summary.salary_min, summary.currency)
+    )
+    period_note = f" · {summary.period}" if summary.period else ""
+    with st.container(border=True):
+        st.markdown(
+            f"<div class='gap-line'>Disclosed on {summary.with_salary}/{len(jobs)} listings"
+            f" · median <b>{money(summary.median, summary.currency)}</b>/yr"
+            f" · range {summary_line}{period_note}</div>",
+            unsafe_allow_html=True,
+        )
+
+    rows = salary_breakdown(jobs, default_currency)
+
+    top_rows = [r for r in sorted(rows, key=lambda r: (-r.with_salary, -r.jobs)) if r.median_annual is not None][:10]
+    if top_rows:
+        with st.container(border=True):
+            salary_median_chart([{"label": r.title, "median": r.median_annual} for r in top_rows])
+        st.caption("Top 10 titles by disclosed listings — median annualized salary.")
+
+    frame = pd.DataFrame(
+        {
+            "title": [r.title for r in rows],
+            "jobs": [r.jobs for r in rows],
+            "with salary": [r.with_salary for r in rows],
+            "period": [r.period or "—" for r in rows],
+            "currency": [r.currency or "—" for r in rows],
+            "source": [r.source or "—" for r in rows],
+            "range": [range_text(r) for r in rows],
+            "median (yr)": [money(r.median_annual, r.currency) for r in rows],
+        }
+    )
+    with st.container(border=True):
+        st.dataframe(frame, width="stretch", hide_index=True)
+    st.caption("source = api (structured fields) or description (parsed). Currency/period show 'mixed' when a title spans several.")
+
+    seniority_rows = seniority_breakdown(jobs, default_currency)
+    with st.expander("Salary by seniority"):
+        seniority_frame = pd.DataFrame(
+            {
+                "level": [r["level"] for r in seniority_rows],
+                "jobs": [r["jobs"] for r in seniority_rows],
+                "with salary": [r["with_salary"] for r in seniority_rows],
+                "median (yr)": [money(r["median"], None) if r["median"] is not None else "—" for r in seniority_rows],
+            }
+        )
+        st.dataframe(seniority_frame, width="stretch", hide_index=True)
+
+    own = set(normalize_skills(load_own_skills(), get_matcher()))
+    skill_rows = [r for r in skill_salary(jobs, get_matcher(), default_currency) if r["median"] is not None]
+    with st.expander("Salary by skill"):
+        if skill_rows:
+            skill_frame = pd.DataFrame(
+                {
+                    "skill": [f"{r['skill']} ⚠️" if r["skill"] not in own else r["skill"] for r in skill_rows],
+                    "jobs": [r["jobs"] for r in skill_rows],
+                    "with salary": [r["with_salary"] for r in skill_rows],
+                    "median (yr)": [money(r["median"], None) for r in skill_rows],
+                }
+            )
+            st.dataframe(skill_frame, width="stretch", hide_index=True)
+            st.caption("⚠️ = in market demand but missing from **My stack**")
+        else:
+            st.markdown("<div class='card' style='color:#A1A1AA'>No skill has a parseable salary yet.</div>", unsafe_allow_html=True)
+
+    source_rows = source_salary(jobs, default_currency)
+    with st.expander("Salary by source"):
+        source_frame = pd.DataFrame(
+            {
+                "source": [r["source"] for r in source_rows],
+                "jobs": [r["jobs"] for r in source_rows],
+                "with salary": [r["with_salary"] for r in source_rows],
+                "median (yr)": [money(r["median"], None) if r["median"] is not None else "—" for r in source_rows],
+            }
+        )
+        st.dataframe(source_frame, width="stretch", hide_index=True)
+
+    side_label("Salary trend · ACROSS PULLS")
+    points = []
+    for snap in load_history(st.session_state.region):
+        salary = snap.get("salary")
+        if salary and salary.get("median_annual") is not None:
+            points.append({"ts": pd.to_datetime(snap["ts"], unit="s"), "median": salary["median_annual"]})
+    if len(points) < 2:
+        st.caption("Salary trend builds with each pull — hit ⟳ Refresh over time to grow the line (median/yr).")
+    else:
+        with st.container(border=True):
+            salary_trend_chart(points)
 
 
 def _trend_section(region: str, stats: list) -> None:
