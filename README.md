@@ -11,7 +11,7 @@ streamlit run main.py
 ```
 
 Key (needed only for Hong Kong):
-- `JSEARCH_API_KEY` — get it at [app.openwebninja.com/api/jsearch](https://app.openwebninja.com/api/jsearch) (free tier available). HK refresh ≈ 14 requests. The key must come from the OpenWeb Ninja portal — a RapidAPI key will not work here.
+- `JSEARCH_API_KEY` — get it at [app.openwebninja.com/api/jsearch](https://app.openwebninja.com/api/jsearch) (free tier available). HK refresh ≈ 4–8 requests: each of the 4 search terms costs 1 call, and page 2 is only fetched when a page returns a full set of new results (`jsearch_page_size`/`jsearch_max_jobs` in `config.py` gate the call budget). The key must come from the OpenWeb Ninja portal — a RapidAPI key will not work here.
 
 USA/Global work keyless via Jobicy + Remotive + RemoteOK.
 
@@ -26,6 +26,8 @@ USA/Global work keyless via Jobicy + Remotive + RemoteOK.
    .venv\Scripts\python.exe scripts\update_history.py               # all regions
    .venv\Scripts\python.exe scripts\update_history.py --regions hk  # subset (aliases: hk, usa, global)
    ```
+
+   `.github/workflows/update-history.yml` runs this daily: remote-only (USA/Global) on most days, and a full JSearch pull every 4 days. Set the `JSEARCH_API_KEY` repository secret; the workflow commits only `res/data/history_*.json`.
 
 5. Ask the chat: `top skills`, `python`, `how many jobs`, `compare hk vs usa`, `help`. Editing `.env` or `res/config/*.json` marks caches stale automatically.
 

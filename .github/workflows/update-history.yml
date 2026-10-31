@@ -1,0 +1,63 @@
+name: Update trend history
+
+on:
+  schedule:
+    # Daily 06:17 UTC (14:17 HKT). Off-peak minute avoids GitHub's busy :00 slot.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-history
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - id: mode
+        run: |
+          # Full JSearch pull every 4 days; remote-only otherwise.
+          # Day-of-year keeps the cycle stable across month boundaries.
+          if [ $(( 10#$(date -u +%j) % 4 )) -eq 0 ]; then
+            echo "full=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "full=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Remote-only pull (no JSearch)
+        if: steps.mode.outputs.full == '0'
+        env:
+          JSEARCH_API_KEY: ""
+        run: python scripts/update_history.py --regions usa,global
+
+      - name: Full pull (JSearch + remote)
+        if: steps.mode.outputs.full == '1'
+        env:
+          JSEARCH_API_KEY: ${{ secrets.JSEARCH_API_KEY }}
+        run: |
+          : "${JSEARCH_API_KEY:?missing JSEARCH_API_KEY repository secret}"
+          python scripts/update_history.py
+
+      - name: Commit snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add res/data/history_*.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update trend history snapshots"
+            git pull --rebase origin main
+            git push
+          fi
