@@ -95,3 +95,37 @@ def test_serialization_preserves_frozenset_and_tuples():
     job = make_job(regions=("USA",), tags=("a", "b"))
     clone = job_from_dict(job_to_dict(job))
     assert clone == job
+
+
+def test_refresh_region_calls_jsearch_only_when_key_present(monkeypatch):
+    """jsearch must be skipped entirely when no API key is configured."""
+    from config import ApiConfig, Settings
+
+    calls: list[str] = []
+    monkeypatch.setattr(fetch_mod, "save_cache", lambda *a, **k: None)
+
+    def fake_jsearch(keywords, region):
+        calls.append(region)
+        return [], None
+
+    monkeypatch.setattr(fetch_mod.jsearch, "fetch", fake_jsearch)
+    for name in ("jobicy", "remotive", "remoteok"):
+        monkeypatch.setattr(getattr(fetch_mod, name), "fetch", lambda: ([], None))
+
+    monkeypatch.setattr(fetch_mod, "settings", Settings(api=ApiConfig(jsearch_api_key="")))
+    fetch_mod.refresh_region("USA")
+    assert calls == []
+
+    monkeypatch.setattr(fetch_mod, "settings", Settings(api=ApiConfig(jsearch_api_key="key")))
+    fetch_mod.refresh_region("USA")
+    assert calls == ["USA"]
+
+
+def test_refresh_hk_without_key_warns_and_never_calls_jsearch(monkeypatch):
+    from config import ApiConfig, Settings
+
+    monkeypatch.setattr(fetch_mod, "settings", Settings(api=ApiConfig(jsearch_api_key="")))
+    monkeypatch.setattr(fetch_mod, "save_cache", lambda *a, **k: None)
+    jobs, warnings = fetch_mod.refresh_region("Hong Kong")
+    assert jobs == []
+    assert any("JSEARCH_API_KEY" in w for w in warnings)

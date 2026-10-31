@@ -25,12 +25,27 @@ JSEARCH_SALARY_PERIODS = {
 
 
 def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
+    """Fetch jobs for a region while keeping the number of API calls low.
+
+    Call budget rules (all configurable in `config.FetchConfig`):
+      * at most `jsearch_max_pages_per_keyword` pages per keyword;
+      * a next page is only probed when the previous page came back full
+        (`>= jsearch_page_size` results) *and* added fresh jobs — sparse or
+        fully-overlapping pages stop the keyword immediately;
+      * once `jsearch_max_jobs` unique jobs are collected, remaining keywords
+        are skipped entirely;
+      * no trailing delay after the final request.
+    """
     api_key = settings.api.jsearch_api_key
     if not api_key:
         return [], None
+    page_size = settings.fetch.jsearch_page_size
+    cap = settings.fetch.jsearch_max_jobs
     jobs: dict[str, Job] = {}
     errors: dict[str, int] = {}
     for keyword in keywords:
+        if len(jobs) >= cap:
+            break
         for page in range(1, settings.fetch.jsearch_max_pages_per_keyword + 1):
             data, error = _search_throttled(api_key, keyword, region, page)
             if error:
@@ -39,10 +54,20 @@ def fetch(keywords: list[str], region: str) -> tuple[list[Job], str | None]:
             items = data.get("data", []) if isinstance(data, dict) else []
             if not items:
                 break
+            added = 0
             for item in items:
                 job = _to_job(item, region)
-                if job.title:
-                    jobs.setdefault(job.id, job)
+                if job.title and job.id not in jobs:
+                    jobs[job.id] = job
+                    added += 1
+            continue_paging = (
+                page < settings.fetch.jsearch_max_pages_per_keyword
+                and len(items) >= page_size
+                and added > 0
+                and len(jobs) < cap
+            )
+            if not continue_paging:
+                break
             time.sleep(settings.fetch.jsearch_delay_s)
     error_summary = ", ".join(f"{msg} x{count}" for msg, count in sorted(errors.items()))
     return list(jobs.values()), error_summary or None

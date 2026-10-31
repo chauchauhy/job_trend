@@ -53,6 +53,8 @@ class ApiConfig:
 class FetchConfig:
     max_jobs_per_region: int = 150
     jsearch_max_pages_per_keyword: int = 2
+    jsearch_page_size: int = 10
+    jsearch_max_jobs: int = 150
     jsearch_delay_s: float = 1.1
     retry_backoff_s: float = 2.5
     jobicy_count: int = 50
