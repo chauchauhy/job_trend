@@ -2,7 +2,7 @@ import re
 
 import pandas as pd
 
-from config import REGION_ALIASES, REGIONS, settings
+from config import REGION_ALIASES, REGIONS, REGION_DEFAULT_CURRENCY, settings
 from src.analysis.salary import money, range_text, region_salary, salary_breakdown, skill_salary
 from src.analysis.skills import SkillStat, compute_stats, get_matcher, lookup_skill, top_skills
 
@@ -231,7 +231,7 @@ def _compare_salary(store, message: str, default: str) -> tuple[str, pd.DataFram
         targets = targets[:2]
     rows = []
     for region in targets:
-        summary = region_salary(store[region])
+        summary = region_salary(store[region], REGION_DEFAULT_CURRENCY.get(region))
         rows.append(
             {
                 "region": region,
@@ -252,12 +252,16 @@ def _compare_salary(store, message: str, default: str) -> tuple[str, pd.DataFram
 def _salary_coverage(store, region: str) -> tuple[str, pd.DataFrame | None]:
     jobs = store[region]
     total = len(jobs)
-    paid = sum(r.with_salary for r in salary_breakdown(jobs))
+    paid = sum(r.with_salary for r in salary_breakdown(jobs, REGION_DEFAULT_CURRENCY.get(region)))
     return f"**{paid}/{total}** {region} listings disclose a structured or parseable salary.", None
 
 
 def _highest_paying(store, region: str) -> tuple[str, pd.DataFrame | None]:
-    rows = [r for r in salary_breakdown(store[region]) if r.median_annual is not None]
+    rows = [
+        r
+        for r in salary_breakdown(store[region], REGION_DEFAULT_CURRENCY.get(region))
+        if r.median_annual is not None
+    ]
     rows.sort(key=lambda r: -r.median_annual)
     df = pd.DataFrame(
         {
@@ -273,7 +277,7 @@ def _highest_paying(store, region: str) -> tuple[str, pd.DataFrame | None]:
 
 
 def _salary_by_title(store, region: str) -> tuple[str, pd.DataFrame | None]:
-    rows = salary_breakdown(store[region])
+    rows = salary_breakdown(store[region], REGION_DEFAULT_CURRENCY.get(region))
     df = pd.DataFrame(
         {
             "title": [r.title for r in rows],
@@ -289,7 +293,11 @@ def _salary_by_title(store, region: str) -> tuple[str, pd.DataFrame | None]:
 
 
 def _salary_skill(store, region: str, skill_name: str) -> tuple[str, pd.DataFrame | None]:
-    rows = [r for r in skill_salary(store[region], get_matcher()) if r["skill"] == skill_name]
+    rows = [
+        r
+        for r in skill_salary(store[region], get_matcher(), REGION_DEFAULT_CURRENCY.get(region))
+        if r["skill"] == skill_name
+    ]
     if not rows or rows[0]["median"] is None:
         return f"**{skill_name}** jobs in {region} don't disclose a parseable salary yet.", None
     row = rows[0]

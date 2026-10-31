@@ -127,3 +127,13 @@ def test_compare_salary_intent():
     text, df = respond("compare salary hk vs usa", "Global", store)
     assert df is not None
     assert set(df.columns) >= {"region", "with salary", "median"}
+
+
+def test_salary_uses_region_default_currency():
+    store = {
+        "Hong Kong": [
+            make_job(job_id="hk1", title="Engineer", description="Salary $100,000 per year."),
+        ]
+    }
+    df = respond("salary by title", "Hong Kong", store)[1]
+    assert df.iloc[0]["currency"] == "HKD"
